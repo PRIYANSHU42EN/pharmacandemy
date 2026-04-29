@@ -28,7 +28,7 @@ try {
      }
      console.log("Successfully parsed JSON credentials. Project ID:", parsedCreds.project_id);
   } catch (e) {
-     console.error("Failed to parse JSON string:", e.message);
+     console.error("Failed to parse JSON string:", (e as Error).message);
      process.exit(1);
   }
 
@@ -52,7 +52,7 @@ try {
       console.log("\n✅ ALL FIREBASE ADMIN SDK KEYS WORKING PERFECTLY");
       process.exit(0);
     } catch (error) {
-      console.error("\n❌ FAILED TO AUTHENTICATE:", error.message);
+      console.error("\n❌ FAILED TO AUTHENTICATE:", (error as Error).message);
       process.exit(1);
     }
   }

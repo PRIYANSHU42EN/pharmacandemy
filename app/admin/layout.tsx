@@ -37,16 +37,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { user, isAdmin, loading, userProfile } = useAuth();
 
   useEffect(() => {
-    // PHASE 5: DEBUG
-    console.log("USER:", user);
-    console.log("ROLE:", userProfile?.role);
-    console.log("LOADING:", loading);
-
+    // Phase 9: Debug
     if (!loading) {
+      console.log("[Admin] Auth State:", { 
+        user: user?.email, 
+        role: userProfile?.role, 
+        isAdmin 
+      });
+
       if (!user) {
         router.replace("/login");
-      } else if (!isAdmin) {
-        router.replace("/courses");
       }
     }
   }, [user, isAdmin, loading, router, userProfile]);
@@ -63,7 +63,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   if (!isAdmin) {
-    return null; // The useEffect handles redirection
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] p-6 text-center">
+        <div 
+          className="w-16 h-16 rounded-full flex items-center justify-center text-[32px] mb-4"
+          style={{ background: "rgba(239,68,68,0.1)" }}
+        >
+          🚫
+        </div>
+        <h2 className="text-[20px] font-bold mb-2" style={{ fontFamily: "var(--font-display)" }}>
+          Access Denied
+        </h2>
+        <p className="text-[14px] max-w-[320px] mb-6" style={{ color: "var(--color-slate)", fontFamily: "var(--font-body)" }}>
+          You do not have administrative privileges to access this area.
+        </p>
+        <Link
+          href="/courses"
+          className="px-6 py-2.5 rounded-full text-[13px] font-bold transition-all"
+          style={{
+            background: "var(--color-navy)",
+            color: "white",
+            fontFamily: "var(--font-body)",
+          }}
+        >
+          Return to Courses
+        </Link>
+      </div>
+    );
   }
 
   return (

@@ -76,7 +76,7 @@ export default function DonatePage() {
         order_id: orderData.orderId,
         theme: { color: "#FB6F92" },
         prefill: {
-          name: userProfile?.displayName || user.user_metadata?.display_name || "",
+          name: userProfile?.displayName || user.displayName || "",
           email: userProfile?.email || user.email || "",
         },
         handler: async function (response: any) {

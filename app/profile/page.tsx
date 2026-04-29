@@ -27,7 +27,7 @@ export default function ProfilePage() {
   }
 
   const referralCode = userProfile?.referralCode || "------";
-  const displayName = userProfile?.displayName || user.user_metadata?.display_name || user.user_metadata?.full_name || "Student";
+  const displayName = userProfile?.displayName || user.displayName || "Student";
   const email = userProfile?.email || user.email || "";
   const initials = displayName.charAt(0).toUpperCase();
 

@@ -33,6 +33,21 @@ export default function ResourceViewerPage({ params }: { params: Promise<Params>
     }
   }, [user, authLoading, router]);
 
+  // Track resource view
+  useEffect(() => {
+    if (resource && !loading) {
+      const trackView = async () => {
+        const { analytics } = await import("@/lib/analytics");
+        analytics.track({ 
+          eventType: "view", 
+          resourceId: id,
+          metadata: { title: resource.title, type: resource.type }
+        });
+      };
+      trackView();
+    }
+  }, [resource, loading, id]);
+
   if (error) {
     return (
       <section className="py-8 lg:py-12" style={{ background: "#F9F8F7", minHeight: "calc(100vh - 64px)" }}>

@@ -46,32 +46,46 @@ export function useCourses() {
   useEffect(() => {
     async function fetchCourses() {
       try {
-        const { data, error } = await supabase
-          .from('courses')
-          .select('*')
-          .eq('is_active', true)
-          .order('order', { ascending: true });
+        // Initial fetch from cached API
+        const response = await fetch('/api/courses');
+        const data = await response.json();
         
-        if (error) throw error;
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch courses');
         
         if (mounted.current) {
-          const mapped = (data || []).map(c => ({
-            id: c.id,
-            name: c.name,
-            code: c.code,
-            description: c.description,
-            order: c.order,
-            isActive: c.is_active,
-            createdAt: c.created_at,
-            updatedAt: c.updated_at
-          }));
-
-          setCourses(mapped as any);
+          setCourses(data);
           setError(null);
         }
       } catch (err: any) {
-        console.error("[Supabase] useCourses error:", err.message);
-        if (mounted.current) setError(err);
+        console.warn("[Cache] useCourses API fail, falling back to Supabase:", err.message);
+        // Fallback to direct Supabase
+        try {
+          const { data, error } = await supabase
+            .from('courses')
+            .select('*')
+            .eq('is_active', true)
+            .order('order', { ascending: true });
+          
+          if (error) throw error;
+          
+          if (mounted.current) {
+            const mapped = (data || []).map(c => ({
+              id: c.id,
+              name: c.name,
+              code: c.code,
+              description: c.description,
+              order: c.order,
+              isActive: c.is_active,
+              createdAt: c.created_at,
+              updatedAt: c.updated_at
+            }));
+
+            setCourses(mapped as any);
+            setError(null);
+          }
+        } catch (fallbackErr: any) {
+          if (mounted.current) setError(fallbackErr);
+        }
       } finally {
         if (mounted.current) setLoading(false);
       }
@@ -323,34 +337,48 @@ export function useSubjects(courseId: string) {
     }
     async function fetchSubjects() {
       try {
-        const { data, error } = await supabase
-          .from('subjects')
-          .select('*')
-          .eq('course_id', courseId)
-          .order('name', { ascending: true });
-        
-        if (error) throw error;
-        
-        if (mounted.current) {
-          const mapped = (data || []).map(s => ({
-            id: s.id,
-            courseId: s.course_id,
-            semesterNumber: s.semester_number,
-            name: s.name,
-            description: s.description,
-            coverImageUrl: s.cover_image_url,
-            isPremium: s.is_premium,
-            resourceCount: s.resource_count,
-            createdAt: s.created_at,
-            updatedAt: s.updated_at
-          }));
+        // Initial fetch from cached API
+        const response = await fetch(`/api/subjects?courseId=${courseId}`);
+        const data = await response.json();
 
-          setSubjects(mapped as any);
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch subjects');
+
+        if (mounted.current) {
+          setSubjects(data);
           setError(null);
         }
       } catch (err: any) {
-        console.error("[Supabase] useSubjects error:", err.message);
-        if (mounted.current) setError(err);
+        console.warn("[Cache] useSubjects API fail, falling back to Supabase:", err.message);
+        // Fallback to direct Supabase
+        try {
+          const { data, error } = await supabase
+            .from('subjects')
+            .select('*')
+            .eq('course_id', courseId)
+            .order('name', { ascending: true });
+          
+          if (error) throw error;
+          
+          if (mounted.current) {
+            const mapped = (data || []).map(s => ({
+              id: s.id,
+              courseId: s.course_id,
+              semesterNumber: s.semester_number,
+              name: s.name,
+              description: s.description,
+              coverImageUrl: s.cover_image_url,
+              isPremium: s.is_premium,
+              resourceCount: s.resource_count,
+              createdAt: s.created_at,
+              updatedAt: s.updated_at
+            }));
+
+            setSubjects(mapped as any);
+            setError(null);
+          }
+        } catch (fallbackErr: any) {
+          if (mounted.current) setError(fallbackErr);
+        }
       } finally {
         if (mounted.current) setLoading(false);
       }
@@ -437,40 +465,80 @@ export function useResources(subjectId: string) {
   const [error, setError] = useState<Error | null>(null);
   const mounted = useMountedRef();
 
+  const [refreshCount, setRefreshCount] = useState(0);
+
   useEffect(() => {
     if (!subjectId) {
       setLoading(false);
       return;
     }
 
-    const resourcesRef = collection(db, "resources");
-    const q = query(
-      resourcesRef,
-      orderBy("createdAt", "desc"),
-      limit(100)
-    );
+    async function fetchResources() {
+      try {
+        // Initial fetch from cached API
+        const response = await fetch(`/api/resources/list?subjectId=${subjectId}`);
+        const data = await response.json();
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!mounted.current) return;
-      
-      const mapped = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as any))
-        .filter(r => r.subjectId === subjectId && !r.isDeleted);
-        
-      setResources(mapped);
-      setLoading(false);
-    }, (err) => {
-      console.error("[Firestore] useResources error:", err);
-      if (mounted.current) {
-        setError(err);
-        setLoading(false);
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch resources');
+
+        if (mounted.current) {
+          setResources(data);
+          setError(null);
+        }
+      } catch (err: any) {
+        console.warn("[Cache] useResources API fail, falling back to Supabase:", err.message);
+        // Fallback to direct Supabase
+        try {
+          const { data, error } = await supabase
+            .from('resources')
+            .select('*')
+            .eq('subject_id', subjectId)
+            .eq('is_deleted', false)
+            .order('created_at', { ascending: false });
+          
+          if (error) throw error;
+          
+          if (mounted.current) {
+            const mapped = (data || []).map(r => ({
+              id: r.id,
+              title: r.title,
+              description: r.description,
+              type: r.type,
+              url: r.url,
+              subjectId: r.subject_id,
+              courseId: r.course_id,
+              isPremium: r.is_premium,
+              previewImageUrl: r.preview_image_url,
+              tags: r.tags || [],
+              year: r.year,
+              createdAt: r.created_at,
+              updatedAt: r.updated_at
+            }));
+
+            setResources(mapped as any);
+            setError(null);
+          }
+        } catch (fallbackErr: any) {
+          if (mounted.current) setError(fallbackErr);
+        }
+      } finally {
+        if (mounted.current) setLoading(false);
       }
-    });
+    }
 
-    return () => unsubscribe();
-  }, [subjectId]);
+    fetchResources();
 
-  return { resources, loading, error };
+    const channel = supabase
+      .channel(`resources-${subjectId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'resources', filter: `subject_id=eq.${subjectId}` }, () => {
+        fetchResources();
+      })
+      .subscribe();
+
+    return () => { channel.unsubscribe(); };
+  }, [subjectId, refreshCount]);
+
+  return { resources, loading, error, refresh: () => { setRefreshCount(c => c + 1); setLoading(true); } };
 }
 
 // ---------------------------------------------------------------------------
@@ -489,32 +557,49 @@ export function useResource(resourceId: string) {
       return;
     }
 
-    const docRef = doc(db, "resources", resourceId);
-    const unsubscribe = onSnapshot(docRef, (snapshot) => {
-      if (!mounted.current) return;
-
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        if (data.isDeleted) {
-          setResource(null);
-        } else {
-          const mapped = { id: snapshot.id, ...data } as Resource;
-          setResource(mapped);
-          dataCache.set(cacheKey, mapped);
+    async function fetchResource() {
+      try {
+        const { data, error } = await supabase
+          .from('resources')
+          .select('*')
+          .eq('id', resourceId)
+          .single();
+        
+        if (error) throw error;
+        
+        if (mounted.current) {
+          if (data.is_deleted) {
+            setResource(null);
+          } else {
+            const mapped = {
+              id: data.id,
+              title: data.title,
+              description: data.description,
+              type: data.type,
+              url: data.url,
+              subjectId: data.subject_id,
+              courseId: data.course_id,
+              isPremium: data.is_premium,
+              previewImageUrl: data.preview_image_url,
+              tags: data.tags || [],
+              year: data.year,
+              createdAt: data.created_at,
+              updatedAt: data.updated_at
+            };
+            setResource(mapped as any);
+            dataCache.set(cacheKey, mapped);
+          }
+          setError(null);
         }
-      } else {
-        setResource(null);
+      } catch (err: any) {
+        console.error("[Supabase] useResource error:", err.message);
+        if (mounted.current) setError(err);
+      } finally {
+        if (mounted.current) setLoading(false);
       }
-      setLoading(false);
-    }, (err) => {
-      console.error("[Firestore] useResource error:", err);
-      if (mounted.current) {
-        setError(err);
-        setLoading(false);
-      }
-    });
+    }
 
-    return () => unsubscribe();
+    fetchResource();
   }, [resourceId]);
 
   return { resource, loading, error };
@@ -539,20 +624,14 @@ export function useAdminStats() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const usersRef = collection(db, "users");
-        const usersSnap = await getDocs(query(usersRef));
-        const allUsers = usersSnap.docs.map(d => d.data());
-        
-        const userCount = allUsers.length;
-        const premiumCount = allUsers.filter(u => u.isPremium).length;
-        
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayStr = today.toISOString();
-        const activeToday = allUsers.filter(u => u.updatedAt >= todayStr).length;
-
+        const { count: userCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
+        const { count: premiumCount } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('is_premium', true);
         const { count: resourceCount } = await supabase.from('resources').select('*', { count: 'exact', head: true }).eq('is_deleted', false);
         const { count: paymentCount } = await supabase.from('payments').select('*', { count: 'exact', head: true });
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const { count: activeToday } = await supabase.from('users').select('*', { count: 'exact', head: true }).gte('updated_at', today.toISOString());
 
         setStats({
           totalUsers: userCount || 0,
@@ -562,10 +641,7 @@ export function useAdminStats() {
           paymentCount: paymentCount || 0,
         });
       } catch (err) {
-        console.warn("[AdminStats] Firestore error, falling back to Supabase:", err);
-        const { count: userCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
-        const { count: resourceCount } = await supabase.from('resources').select('*', { count: 'exact', head: true }).eq('is_deleted', false);
-        setStats(prev => ({ ...prev, totalUsers: userCount || 0, totalResources: resourceCount || 0 }));
+        console.warn("[AdminStats] Supabase error:", err);
       } finally {
         setLoading(false);
       }
@@ -575,6 +651,7 @@ export function useAdminStats() {
     const channel = supabase.channel('admin-stats-updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'resources' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => fetchStats())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -583,13 +660,95 @@ export function useAdminStats() {
   return { stats, loading };
 }
 
+/**
+ * Advanced real-time analytics for the dashboard
+ */
+export function useRealtimeAnalytics() {
+  const [events, setEvents] = useState<any[]>([]);
+  const [metrics, setMetrics] = useState({
+    activeNow: 0,
+    viewsToday: 0,
+    loginsToday: 0,
+    topResources: [] as { id: string; count: number }[],
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchInitialData() {
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+        // Fetch views today
+        const { count: viewsToday } = await supabase
+          .from('analytics_events')
+          .select('*', { count: 'exact', head: true })
+          .eq('event_type', 'view')
+          .gte('created_at', today.toISOString());
+
+        // Fetch logins today
+        const { count: loginsToday } = await supabase
+          .from('analytics_events')
+          .select('*', { count: 'exact', head: true })
+          .eq('event_type', 'login')
+          .gte('created_at', today.toISOString());
+
+        // Fetch active now (users with events in last 5 mins)
+        const { data: activeEvents } = await supabase
+          .from('analytics_events')
+          .select('user_id')
+          .gte('created_at', fiveMinsAgo.toISOString());
+        
+        const activeNow = new Set(activeEvents?.map(e => e.user_id).filter(Boolean)).size;
+
+        setMetrics({
+          activeNow,
+          viewsToday: viewsToday || 0,
+          loginsToday: loginsToday || 0,
+          topResources: [], // Logic for top resources can be added here
+        });
+      } catch (err) {
+        console.error("[Analytics] Fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchInitialData();
+
+    const channel = supabase.channel('realtime-analytics')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'analytics_events' }, (payload) => {
+        const newEvent = payload.new;
+        setEvents(prev => [newEvent, ...prev].slice(0, 50));
+        
+        // Optimistically update metrics
+        setMetrics(prev => {
+          const isView = newEvent.event_type === 'view';
+          const isLogin = newEvent.event_type === 'login';
+          return {
+            ...prev,
+            viewsToday: isView ? prev.viewsToday + 1 : prev.viewsToday,
+            loginsToday: isLogin ? prev.loginsToday + 1 : prev.loginsToday,
+            activeNow: prev.activeNow // activeNow is harder to update optimistically correctly without a timer
+          };
+        });
+      })
+      .subscribe();
+
+    return () => { channel.unsubscribe(); };
+  }, []);
+
+  return { events, metrics, loading };
+}
+
 export function useAdminUsers() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    let unsubscribeFirestore: (() => void) | null = null;
     let isSubscribed = true;
 
     async function loadUsers() {
@@ -597,73 +756,47 @@ export function useAdminUsers() {
       setLoading(true);
       
       try {
-        // 1. Try Firestore getDocs
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, orderBy("createdAt", "desc"), limit(100));
-        
-        const snap = await getDocs(q);
-        
-        if (!snap.empty) {
-          console.log("[AdminUsers] Firestore loaded:", snap.size);
-          if (isSubscribed) setUsers(snap.docs.map(d => ({ uid: d.id, ...d.data() })) as any);
+        const { data, error: supaErr } = await supabase
+          .from('users')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(200);
           
-          // Subscribe for updates
-          unsubscribeFirestore = onSnapshot(q, (s) => {
-            if (isSubscribed && !s.empty) {
-              setUsers(s.docs.map(d => ({ uid: d.id, ...d.data() })) as any);
-            }
-          });
-        } else {
-          throw new Error("Firestore empty");
+        if (isSubscribed && data) {
+          const mapped = data.map(u => ({
+            uid: u.id,
+            email: u.email,
+            displayName: u.name || u.email?.split('@')[0] || "User",
+            role: u.role || 'user',
+            isPremium: u.is_premium,
+            createdAt: u.created_at,
+            updatedAt: u.updated_at
+          }));
+          setUsers(mapped as any);
         }
-
-      } catch (err) {
-        console.warn("[AdminUsers] Falling back to Supabase:", err);
-        try {
-          const { data, error: supaErr } = await supabase
-            .from('users')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(100);
-            
-          if (isSubscribed && data) {
-            setUsers(data.map(u => ({
-              uid: u.id,
-              email: u.email,
-              displayName: u.name || u.email?.split('@')[0] || "User",
-              role: u.role || 'user',
-              isPremium: u.is_premium,
-              createdAt: u.created_at,
-              updatedAt: u.updated_at
-            })) as any);
-          }
-          if (supaErr) setError(supaErr as any);
-        } catch (sErr) {
-          setError(sErr as any);
-        }
+        if (supaErr) throw supaErr;
+      } catch (err: any) {
+        console.error("[AdminUsers] Supabase load failed:", err);
+        setError(err);
       } finally {
         if (isSubscribed) setLoading(false);
       }
     }
 
     loadUsers();
+    
+    const channel = supabase
+      .channel('admin-users-all')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+        loadUsers();
+      })
+      .subscribe();
+
     return () => {
       isSubscribed = false;
-      if (unsubscribeFirestore) unsubscribeFirestore();
+      channel.unsubscribe();
     };
   }, []);
 
-  const togglePremium = async (uid: string, isPremium: boolean) => {
-    const userRef = doc(db, "users", uid);
-    try {
-       await updateDoc(userRef, { isPremium, updatedAt: new Date().toISOString() });
-    } catch (e) {
-       console.warn("[AdminUsers] Firestore toggle failed:", e);
-    }
-    if (supabase) {
-      await supabase.from('users').update({ is_premium: isPremium, updated_at: new Date().toISOString() }).eq('id', uid);
-    }
-  };
-
-  return { users, loading, error, togglePremium };
+  return { users, loading, error };
 }

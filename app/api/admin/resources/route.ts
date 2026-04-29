@@ -1,187 +1,182 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { supabaseServer } from "@/lib/supabase/server";
 import { adminAuth } from "@/lib/firebase/admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { invalidateCache } from "@/lib/redis";
 
-// Zod Schema for strict validation
-const resourceSchema = z.object({
-  title: z.string().min(2, "Title is too short").max(200, "Title is too long"),
-  description: z.string().optional(),
-  type: z.enum(["pdf", "video", "pyq", "important", "practice"]),
-  url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-  previewImage: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-  subjectId: z.string().min(1, "Subject ID required"),
-  courseId: z.string().min(1, "Course ID required"),
-  tags: z.array(z.string()).default([]),
-  isPremium: z.boolean().default(false)
-});
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const subjectId = searchParams.get("subjectId");
 
-// Basic Memory Store for Rate Limiting
-const rateLimitMap = new Map<string, { count: number; timestamp: number }>();
-const RATE_LIMITCount = 30; // requests per minute
-
-// Basic Sanitizer
-const sanitizeText = (str?: string) => {
-  if (!str) return str;
-  return str.replace(/<script[^>]*?>.*?<\/script>/gi, '').replace(/[<>]/g, '');
-};
-
-function checkRateLimit(ip: string) {
-  const now = Date.now();
-  const hit = rateLimitMap.get(ip);
-  if (hit) {
-    if (now - hit.timestamp < 60000) {
-      if (hit.count >= RATE_LIMITCount) return false;
-      hit.count++;
-    } else {
-      rateLimitMap.set(ip, { count: 1, timestamp: now });
+    let query = supabaseAdmin?.from("resources").select("*").eq("is_deleted", false);
+    
+    if (subjectId) {
+      query = query?.eq("subject_id", subjectId);
     }
-  } else {
-    rateLimitMap.set(ip, { count: 1, timestamp: now });
+
+    const { data, error } = await query!;
+    if (error) throw error;
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return true;
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || "unknown";
-    if (!checkRateLimit(ip)) {
-      return NextResponse.json({ error: "Rate limit exceeded. Please slow down." }, { status: 429 });
-    }
-
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
-    const token = authHeader.replace("Bearer ", "");
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(token);
-    } catch (authError: any) {
-      console.error("[Admin Resources] Firebase auth error:", authError.message);
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const uid = decodedToken.uid;
+    const idToken = authHeader.split("Bearer ")[1];
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    const { uid } = decodedToken;
 
-    // Check admin permissions in Supabase users table using admin client to bypass RLS
-    const { data: userProfile, error: profileError } = await (supabaseAdmin || supabaseServer)
+    // Check if user is admin in Supabase
+    const { data: user, error: userError } = await supabaseAdmin!
       .from("users")
       .select("role")
       .eq("id", uid)
       .single();
 
-    if (profileError || !userProfile || !["admin", "super-admin", "content-admin"].includes(userProfile.role)) {
-      // Hardcoded fallback for owner email
-      if (decodedToken.email !== "smashgaming5488@gmail.com") {
-        return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
-      }
+    if (userError || (user.role !== "admin" && user.role !== "super-admin")) {
+      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
     }
 
     const body = await req.json();
-    const data = resourceSchema.parse(body);
+    const { title, description, type, url, subject_id, course_id, is_premium, preview_image_url, tags, year } = body;
 
-    const payload = {
-      title: sanitizeText(data.title),
-      description: sanitizeText(data.description),
-      type: data.type,
-      url: data.url ? sanitizeText(data.url) : "",
-      preview_image: data.previewImage ? sanitizeText(data.previewImage) : "",
-      subject_id: data.subjectId,
-      course_id: data.courseId,
-      tags: data.tags,
-      is_premium: data.isPremium,
-      is_deleted: false,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data: inserted, error: insertError } = await supabaseServer
+    const { data, error } = await supabaseAdmin!
       .from("resources")
-      .insert([payload])
+      .insert([{
+        title,
+        description,
+        type,
+        url,
+        subject_id,
+        course_id,
+        is_premium: is_premium || false,
+        preview_image_url,
+        tags: tags || [],
+        year,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
       .select()
       .single();
 
-    if (insertError) throw insertError;
+    if (error) throw error;
 
-    return NextResponse.json({ success: true, id: inserted.id, resource: inserted }, { status: 201 });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Validation Error", details: error.issues }, { status: 400 });
+    // Invalidate Cache
+    try {
+      if (subject_id) {
+        await invalidateCache(`resources:list:${subject_id}`);
+      }
+    } catch (err) {
+      console.warn("[Admin API] Cache invalidation failed:", err);
     }
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    console.error("[Admin API] Error:", error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-export async function PUT(req: Request) {
+export async function PATCH(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || "unknown";
-    if (!checkRateLimit(ip)) {
-      return NextResponse.json({ error: "Rate limit exceeded. Please slow down." }, { status: 429 });
-    }
-
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
-    const token = authHeader.replace("Bearer ", "");
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(token);
-    } catch (authError: any) {
-      console.error("[Admin Resources PUT] Firebase auth error:", authError.message);
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const uid = decodedToken.uid;
+    const idToken = authHeader.split("Bearer ")[1];
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    const { uid } = decodedToken;
 
-    // Check admin permissions in Supabase users table using admin client to bypass RLS
-    const { data: userProfile, error: profileError } = await (supabaseAdmin || supabaseServer)
-      .from("users")
-      .select("role")
-      .eq("id", uid)
-      .single();
-
-    if (profileError || !userProfile || !["admin", "super-admin", "content-admin"].includes(userProfile.role)) {
-      // Hardcoded fallback for owner email
-      if (decodedToken.email !== "smashgaming5488@gmail.com") {
-        return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
-      }
+    // Admin check
+    const { data: user } = await supabaseAdmin!.from("users").select("role").eq("id", uid).single();
+    if (user?.role !== "admin" && user?.role !== "super-admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await req.json();
-    const { id, ...rest } = body;
-    if (!id) return NextResponse.json({ error: "Missing Resource ID" }, { status: 400 });
+    const { id, ...updates } = body;
 
-    const data = resourceSchema.partial().parse(rest);
-
-    const updatePayload: any = { 
-      ...data, 
-      updated_at: new Date().toISOString() 
-    };
-    
-    // Map camelCase to snake_case for Supabase
-    if (data.subjectId) { updatePayload.subject_id = data.subjectId; delete updatePayload.subjectId; }
-    if (data.courseId) { updatePayload.course_id = data.courseId; delete updatePayload.courseId; }
-    if (data.isPremium !== undefined) { updatePayload.is_premium = data.isPremium; delete updatePayload.isPremium; }
-    if (data.previewImage) { updatePayload.preview_image = data.previewImage; delete updatePayload.previewImage; }
-    
-    if (data.title) updatePayload.title = sanitizeText(data.title);
-    if (data.description) updatePayload.description = sanitizeText(data.description);
-    if (data.url) updatePayload.url = sanitizeText(data.url);
-
-    const { error: updateError } = await supabaseServer
+    const { data, error } = await supabaseAdmin!
       .from("resources")
-      .update(updatePayload)
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Invalidate Cache
+    try {
+      if (data.subject_id) {
+        await invalidateCache(`resources:list:${data.subject_id}`);
+      }
+    } catch (err) {
+      console.warn("[Admin API] Cache invalidation failed:", err);
+    }
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const idToken = authHeader.split("Bearer ")[1];
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    const { uid } = decodedToken;
+
+    // Admin check
+    const { data: user } = await supabaseAdmin!.from("users").select("role").eq("id", uid).single();
+    if (user?.role !== "admin" && user?.role !== "super-admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
+
+    // Fetch subject_id before soft-delete so we can invalidate
+    const { data: existing } = await supabaseAdmin!
+      .from("resources")
+      .select("subject_id")
+      .eq("id", id)
+      .single();
+
+    // Soft delete
+    const { error } = await supabaseAdmin!
+      .from("resources")
+      .update({ is_deleted: true, updated_at: new Date().toISOString() })
       .eq("id", id);
 
-    if (updateError) throw updateError;
+    if (error) throw error;
 
-    return NextResponse.json({ success: true, id }, { status: 200 });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Validation Error", details: error.issues }, { status: 400 });
+    // Invalidate Cache
+    try {
+      if (existing?.subject_id) {
+        await invalidateCache(`resources:list:${existing.subject_id}`);
+      }
+    } catch (err) {
+      console.warn("[Admin API] Cache invalidation failed:", err);
     }
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

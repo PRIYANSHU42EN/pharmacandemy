@@ -12,7 +12,7 @@ const RATE_LIMIT_WINDOW_MS = 60000; // per 1 minute
 export function middleware(request: NextRequest) {
   // Only apply rate limiting to API routes
   if (request.nextUrl.pathname.startsWith('/api')) {
-    const ip = request.headers.get('x-forwarded-for') || request.ip || 'unknown';
+    const ip = request.headers.get('x-forwarded-for') || (request as any).ip || 'unknown';
 
     const now = Date.now();
     const hit = rateLimitMap.get(ip);

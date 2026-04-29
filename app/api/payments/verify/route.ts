@@ -131,6 +131,17 @@ export async function POST(req: NextRequest) {
         console.warn("[Payments] Firestore update failed (non-critical):", firestoreError.message);
       }
 
+      // 3. Track payment event in analytics_events
+      try {
+        await supabaseAdmin.from("analytics_events").insert({
+          user_id: authenticatedUserId,
+          event_type: "payment",
+          metadata: { amount: actualAmount, type: actualType, orderId: razorpay_order_id }
+        });
+      } catch (analyticsError: any) {
+        console.warn("[Payments] Analytics tracking failed (non-critical):", analyticsError.message);
+      }
+
       console.log(`[Payments] Premium activated for ${authenticatedUserId} for ${days} days`);
       return NextResponse.json({ success: true, message: "Premium activated" });
     }

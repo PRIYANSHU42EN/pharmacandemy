@@ -15,40 +15,39 @@ export async function POST(req: NextRequest) {
     const { name, displayName } = await req.json();
 
     const userName = name || displayName || email?.split("@")[0] || "Student";
+    console.log(`[Sync] 🔄 Sync request for: ${email} (${uid})`);
 
-    // 1. Sync to Firestore
+    // 1. Fetch existing profile from Firestore to preserve roles/premium
     let existingData: any = null;
+    const userRef = adminDb.collection("users").doc(uid);
     try {
-      console.log(`[Sync] Starting Firestore sync for ${uid} (${email})`);
-      const userRef = adminDb.collection("users").doc(uid);
       const userSnap = await userRef.get();
-      existingData = userSnap.data();
-
-      const isSuperAdmin = email === "smashgaming5488@gmail.com";
-      const userRole = isSuperAdmin ? "admin" : (existingData?.role ?? "user");
-
-      await userRef.set({
-        uid,
-        email: email || "",
-        displayName: userName,
-        isPremium: existingData?.isPremium ?? false,
-        premiumExpiry: existingData?.premiumExpiry || null,
-        role: userRole,
-        updatedAt: new Date().toISOString(),
-        createdAt: existingData?.createdAt || new Date().toISOString(),
-      }, { merge: true });
-      console.log(`[Sync] Firestore sync successful for ${uid}`);
-    } catch (firestoreError: any) {
-      console.error("[Sync] Firestore sync failed (ignoring):", firestoreError.message);
-      // Continue to Supabase sync
+      if (userSnap.exists) {
+        existingData = userSnap.data();
+      }
+    } catch (e) {
+      console.warn("[Sync] Firestore read failed:", e);
     }
 
+    // Role Logic: Super Admin Priority > Existing Role > Default "user"
     const isSuperAdmin = email === "smashgaming5488@gmail.com";
-    const userRole = isSuperAdmin ? "admin" : (existingData?.role ?? "user"); 
+    const userRole = isSuperAdmin ? "admin" : (existingData?.role ?? "user");
+    const isPremium = existingData?.isPremium ?? false;
 
-    // 2. Sync to Supabase
+    // 2. Update Firestore (Source of Truth for Profile)
+    await userRef.set({
+      uid,
+      email: email || "",
+      displayName: userName,
+      isPremium,
+      premiumExpiry: existingData?.premiumExpiry || null,
+      role: userRole,
+      updatedAt: new Date().toISOString(),
+      createdAt: existingData?.createdAt || new Date().toISOString(),
+    }, { merge: true });
+
+    // 3. Sync to Supabase (Mirror for DB operations)
     if (supabaseAdmin) {
-      console.log(`[Sync] Starting Supabase sync for ${uid}`);
       const { error: pgError } = await supabaseAdmin
         .from("users")
         .upsert({
@@ -56,29 +55,31 @@ export async function POST(req: NextRequest) {
           email: email || "",
           name: userName,
           role: userRole,
-          is_premium: existingData?.isPremium ?? false,
+          is_premium: isPremium,
           updated_at: new Date().toISOString()
         });
       
-      if (pgError) console.warn(`[Sync] Supabase sync warning: ${pgError.message}`);
-      else console.log(`[Sync] Supabase sync successful for ${uid}`);
-    } else {
-      console.warn("[Sync] Supabase sync skipped (missing service role key)");
+      if (pgError) {
+        console.warn(`[Sync] ⚠️ Supabase sync warning: ${pgError.message}`);
+      } else {
+        console.log(`[Sync] ✅ Supabase sync successful for ${uid}`);
+      }
     }
 
+    // Phase 7: Role fetched AFTER sync
     return NextResponse.json({ 
       success: true, 
-      message: "User synced successfully",
       profile: {
         uid,
         email,
         displayName: userName,
-        role: existingData?.role ?? "user",
-        isPremium: existingData?.isPremium ?? false
+        role: userRole,
+        isPremium: isPremium,
+        premiumExpiry: existingData?.premiumExpiry || null
       }
     });
   } catch (error: any) {
-    console.error("[Sync] Error:", error.message);
+    console.error("[Sync] ❌ Fatal Error:", error.message);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

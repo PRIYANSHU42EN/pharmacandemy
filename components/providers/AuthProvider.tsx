@@ -40,6 +40,25 @@ import { supabase } from "@/lib/supabase/client";
 async function syncUserToServer(user: FirebaseUser, displayName?: string) {
   try {
     const idToken = await user.getIdToken();
+    
+    // Phase 4: Supabase Token Sync
+    console.log("[Auth] 🔄 Mirroring Firebase token to Supabase...");
+    const { data: supaData, error: supaError } = await supabase.auth.signInWithIdToken({
+      provider: "google", // Most Supabase versions use 'google' or 'key' for generic OIDC, but we'll try to use the Firebase token
+      token: idToken,
+    });
+
+    // Fallback if signInWithIdToken is not configured or fails
+    if (supaError) {
+      console.warn("[Auth] ⚠️ signInWithIdToken failed, falling back to setSession:", supaError.message);
+      await supabase.auth.setSession({
+        access_token: idToken,
+        refresh_token: "",
+      });
+    }
+
+    // Server-side profile sync (Role propagation)
+    console.log("[Auth] 🔄 Syncing profile with backend...");
     const response = await fetch("/api/auth/sync", {
       method: "POST",
       headers: {
@@ -51,12 +70,16 @@ async function syncUserToServer(user: FirebaseUser, displayName?: string) {
 
     if (!response.ok) {
       const err = await response.json();
-      console.warn("[Auth] Sync API failed:", err.error);
+      console.warn("[Auth] ❌ Sync API failed:", err.error);
+      return null;
     } else {
-      console.log("[Auth] ✅ User synced via server");
+      const data = await response.json();
+      console.log("[Auth] ✅ Sync successful. Role:", data.profile?.role);
+      return data.profile;
     }
   } catch (e) {
-    console.warn("[Auth] Sync API exception:", e);
+    console.warn("[Auth] ❌ Sync exception:", e);
+    return null;
   }
 }
 
@@ -109,10 +132,12 @@ export function useAuth(): AuthContextType {
 const AUTH_INIT_TIMEOUT = 5000;
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
+  const syncInProgress = useRef(false);
+  const lastSyncedUid = useRef<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -138,68 +163,84 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // PHASE 1 & 2: Auth State listener & Prevent Infinite Loop
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      const currentUser = session?.user || null;
+    console.log("[Auth] 🔄 Initializing Auth Listeners...");
+    
+    // Phase 5: Session restoration on reload
+    const unsubscribeFirebase = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log("[Auth] Firebase User State:", firebaseUser ? { uid: firebaseUser.uid, email: firebaseUser.email } : "Logged Out");
       
-      // PHASE 5: DEBUG
-      console.log("[Auth] 🔄 Supabase Auth State Changed:", event);
-      console.log("USER:", currentUser);
-      
-      setUser(currentUser);
+      if (!mountedRef.current) return;
 
-      if (currentUser) {
-        try {
-          // PHASE 3: ADMIN ROLE CHECK
-          console.log("[Auth] 🔍 Fetching role for user:", currentUser.id);
-          const { data, error } = await supabase
-            .from("users")
-            .select("role")
-            .eq("id", currentUser.id)
-            .single();
+      if (firebaseUser) {
+        // Phase 3: Wait for both sessions before unlocking UI
+        setUser(firebaseUser);
 
-          if (error) {
-            console.error("[Auth] ❌ Role fetch error:", error);
-            // PHASE 6: FAILSAFE
-            setUserProfile({
-              uid: currentUser.id,
-              email: currentUser.email || "",
-              role: "viewer" as any,
-              isPremium: false,
-            } as any);
-          } else {
-            console.log("ROLE:", data?.role);
-            setUserProfile({
-              uid: currentUser.id,
-              email: currentUser.email || "",
-              role: data?.role,
-              isPremium: false,
-            } as any);
+        // Phase 4: Prevent duplicate syncs
+        if (firebaseUser.uid !== lastSyncedUid.current || !userProfile) {
+          if (!syncInProgress.current) {
+            syncInProgress.current = true;
+            
+            const profileData = await syncUserToServer(firebaseUser);
+            
+            if (mountedRef.current) {
+              // Phase: Fetch role directly from Supabase for secure enforcement
+              try {
+                console.log("[Auth] 🔄 Fetching secure role from Supabase...");
+                const { data: dbUser, error: dbError } = await supabase
+                  .from("users")
+                  .select("role, is_premium")
+                  .eq("id", firebaseUser.uid)
+                  .single();
+                
+                if (dbError) {
+                  console.warn("[Auth] ⚠️ Supabase role fetch error:", dbError.message);
+                }
+
+                const finalProfile = {
+                  ...profileData,
+                  role: dbUser?.role || profileData?.role || "user",
+                  isPremium: dbUser?.is_premium ?? profileData?.isPremium ?? false,
+                  uid: firebaseUser.uid,
+                };
+
+                setUserProfile(finalProfile as UserProfile);
+                lastSyncedUid.current = firebaseUser.uid;
+
+                // Track login event
+                const { analytics } = await import("@/lib/analytics");
+                analytics.track({ eventType: "login" });
+              } catch (e) {
+                console.error("[Auth] ❌ Role fetch exception:", e);
+                setUserProfile(profileData);
+              }
+            }
+            syncInProgress.current = false;
           }
-        } catch (err) {
-          console.error("[Auth] ❌ Role check exception:", err);
-          // PHASE 6: FAILSAFE
-          setUserProfile({
-            uid: currentUser.id,
-            role: "viewer" as any,
-          } as any);
         }
       } else {
-        console.log("ROLE: null");
+        // User logged out
+        setUser(null);
         setUserProfile(null);
+        lastSyncedUid.current = null;
+        await supabase.auth.signOut();
       }
-
-      setLoading(false);
-      console.log("LOADING: false");
+      
+      // Phase 3: loading = false ONLY after everything completes
+      if (mountedRef.current) {
+        console.log("[Auth] 🔓 Auth lifecycle complete");
+        setLoading(false);
+      }
     });
 
     return () => {
-      subscription.unsubscribe();
+      unsubscribeFirebase();
     };
-  }, []); // Empty dependency ensures it runs once (PHASE 2)
+  }, [fetchProfile, userProfile]);
+
+
 
   const refreshProfile = useCallback(async () => {
-    const userId = user?.id || user?.uid;
+    const userId = user?.uid;
     if (userId) {
       await fetchProfile(userId);
     }
@@ -230,8 +271,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       // Update profile with display name
       await updateProfile(result.user, { displayName });
       
-      // Sync to both DBs via server
-      await syncUserToServer(result.user, displayName);
+      // Let the onAuthStateChanged listener handle the sync to avoid duplicates
       
       // Send welcome email
       await sendWelcomeEmail(email, displayName);

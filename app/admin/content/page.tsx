@@ -6,6 +6,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { RESOURCE_TYPES } from "@/constants";
 import { useCourses, useSubjects, useResources } from "@/hooks/useFirestore";
 import { supabase } from "@/lib/supabase/client";
+import { auth } from "@/lib/firebase/config";
 
 export default function AdminContentPage() {
   const { user, isAdmin } = useAuth();
@@ -65,10 +66,10 @@ export default function AdminContentPage() {
     setIsSaving(true);
     
     try {
-      let data, error;
+      let payload: any = {};
       
       if (activeTab === "resources") {
-        const payload = {
+        payload = {
           title: title.trim(),
           description: description.trim(),
           type: resType,
@@ -79,29 +80,39 @@ export default function AdminContentPage() {
           is_deleted: false,
           updated_at: new Date().toISOString()
         };
-        ({ data, error } = await supabase.from('resources').insert([payload]).select().single());
       } else if (activeTab === "subjects") {
-        const payload = {
+        payload = {
           name: title.trim(),
           course_id: courseId,
-          semester_number: parseInt(description) || 0, // Hack: using description field for semester number in simple UI
+          semester_number: parseInt(description) || 0,
           is_premium: isPremium,
           updated_at: new Date().toISOString()
         };
-        ({ data, error } = await supabase.from('subjects').insert([payload]).select().single());
       } else if (activeTab === "courses") {
-        const payload = {
+        payload = {
           name: title.trim(),
-          code: url.trim().toLowerCase(), // Hack: using url field for code
+          code: url.trim().toLowerCase(),
           description: description.trim(),
           order: 0,
           is_active: true,
           updated_at: new Date().toISOString()
         };
-        ({ data, error } = await supabase.from('courses').insert([payload]).select().single());
       }
 
-      if (error) throw error;
+      const idToken = await auth.currentUser?.getIdToken();
+      const response = await fetch("/api/admin/content", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ table: activeTab, payload }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Failed to save");
+      }
 
       setSuccessMsg(`✅ ${activeTab.slice(0, -1)} created successfully!`);
       setTitle("");
@@ -118,16 +129,23 @@ export default function AdminContentPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this resource? This cannot be undone.")) return;
+    if (!confirm(`Delete this ${activeTab.slice(0, -1)}? This cannot be undone.`)) return;
     setDeletingId(id);
     try {
-      const { error } = await supabase
-        .from('resources')
-        .update({ is_deleted: true })
-        .eq('id', id);
-      if (error) throw error;
-      console.log("[Admin] 🗑️ Resource deleted:", id);
-      // No need to manually update state; hook handles it.
+      const idToken = await auth.currentUser?.getIdToken();
+      const response = await fetch(`/api/admin/content?id=${id}&table=${activeTab}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${idToken}`
+        }
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Failed to delete");
+      }
+
+      console.log("[Admin] 🗑️ Deleted:", id);
     } catch (e: any) {
       console.error("[Admin] Delete failed:", e);
       alert("❌ Delete failed: " + (e.message || "Unknown error"));
@@ -410,24 +428,21 @@ export default function AdminContentPage() {
                       <tr key={sub.id} className="hover:bg-gray-50/50 transition-colors">
                           <td className="px-6 py-4">
                             <p className="text-[14px] font-bold text-navy">{sub.name}</p>
-                            <p className="text-[11px] text-gray-500 uppercase">SEM {sub.semester_number || sub.semesterNumber || "?"}</p>
+                            <p className="text-[11px] text-gray-500 uppercase">SEM {sub.semesterNumber || "?"}</p>
                           </td>
                           <td className="px-6 py-4">
-                            <p className="text-[12px]">{allCourses.find(c => c.id === sub.course_id || c.id === sub.courseId)?.name || '...'}</p>
+                            <p className="text-[12px]">{allCourses.find(c => c.id === sub.courseId)?.name || '...'}</p>
                           </td>
                           <td className="px-6 py-4">
-                            <Badge variant={sub.is_premium || sub.isPremium ? "rose" : "mint"}>{sub.is_premium || sub.isPremium ? "Premium" : "Free"}</Badge>
+                            <Badge variant={sub.isPremium ? "rose" : "mint"}>{sub.isPremium ? "Premium" : "Free"}</Badge>
                           </td>
                           <td className="px-6 py-4 text-right shadow-inner">
                             <button
-                              onClick={() => {
-                                if(confirm("Delete this subject? Resources will be orphaned.")) {
-                                  supabase.from('subjects').delete().eq('id', sub.id).then(() => alert("Deleted"));
-                                }
-                              }}
-                              className="text-[12px] font-bold text-red-600 border border-red-200 px-4 py-1.5 rounded-lg hover:bg-red-600 hover:text-white transition-all"
+                              onClick={() => handleDelete(sub.id)}
+                              disabled={deletingId === sub.id}
+                              className="text-[12px] font-bold text-red-600 border border-red-200 px-4 py-1.5 rounded-lg hover:bg-red-600 hover:text-white transition-all disabled:opacity-50"
                             >
-                              Delete
+                              {deletingId === sub.id ? "Deleting..." : "Delete"}
                             </button>
                           </td>
                       </tr>
@@ -454,8 +469,8 @@ export default function AdminContentPage() {
                             <p className="text-[11px] text-gray-500 uppercase font-mono">{course.code || "no-code"}</p>
                           </td>
                           <td className="px-6 py-4">
-                            <Badge variant={course.is_active || course.isActive ? "mint" : "peach"}>
-                              {course.is_active || course.isActive ? "Active" : "Inactive"}
+                            <Badge variant={course.isActive ? "mint" : "peach"}>
+                              {course.isActive ? "Active" : "Inactive"}
                             </Badge>
                           </td>
                           <td className="px-6 py-4 text-right shadow-inner">

@@ -5,7 +5,7 @@ import Badge from "@/components/ui/Badge";
 import { useAdminUsers } from "@/hooks/useFirestore";
 
 export default function AdminUsersPage() {
-  const { users, loading, error, togglePremium } = useAdminUsers();
+  const { users, loading, error } = useAdminUsers();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "premium" | "free">("all");
   const [processingUid, setProcessingUid] = useState<string | null>(null);
@@ -25,7 +25,23 @@ export default function AdminUsersPage() {
   const handleTogglePremium = async (uid: string, currentStatus: boolean) => {
     setProcessingUid(uid);
     try {
-      await togglePremium(uid, !currentStatus);
+      const { auth } = await import("@/lib/firebase/config");
+      const token = await auth.currentUser?.getIdToken();
+      
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          uid,
+          updates: { is_premium: !currentStatus }
+        })
+      });
+
+      if (!res.ok) throw new Error("Failed to update");
+      
     } catch (err) {
       alert("Failed to update user status.");
     } finally {
