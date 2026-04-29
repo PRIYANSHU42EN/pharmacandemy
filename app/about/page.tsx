@@ -7,13 +7,7 @@ export default function AboutPage() {
   return (
     <section className="py-8 lg:py-12" style={{ background: "#F9F8F7", minHeight: "calc(100vh - 64px)" }}>
       <div className="container-main max-w-4xl">
-        <Breadcrumb
-          items={[
-            { label: "Home", href: "/" },
-            { label: "About Us" },
-          ]}
-        />
-
+        <Breadcrumb items={[{ label: "Home", href: "/" }, { label: "About Us" }]} />
         <div className="mt-8 p-8 lg:p-12 rounded-3xl overflow-hidden" style={{ background: "white", border: "0.5px solid #e0e0e0" }}>
           <div className="flex flex-col md:flex-row gap-12 items-center mb-12">
             <div className="flex-1">
@@ -28,7 +22,6 @@ export default function AboutPage() {
                <span className="text-[120px]">💊</span>
             </div>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
             <div className="p-6 rounded-2xl" style={{ background: "rgba(26,31,60,0.02)", border: "1px solid rgba(26,31,60,0.05)" }}>
               <h2 className="text-[20px] font-bold mb-3" style={{ fontFamily: "var(--font-display)" }}>Our Purpose</h2>
@@ -43,15 +36,12 @@ export default function AboutPage() {
               </p>
             </div>
           </div>
-
           <div className="text-center p-12 rounded-3xl" style={{ background: "var(--color-navy)", color: "white" }}>
             <h2 className="text-[28px] mb-4" style={{ fontFamily: "var(--font-display)" }}>Join the Community</h2>
             <p className="text-[16px] mb-8 opacity-80 max-w-lg mx-auto" style={{ fontFamily: "var(--font-body)" }}>
               Experience a smarter way to study. Start exploring our collections of PYQs and premium notes today.
             </p>
-            <Link href="/courses" className="btn btn-accent px-10 py-4 text-[16px]">
-               Get Started Now
-            </Link>
+            <Link href="/courses" className="btn btn-accent px-10 py-4 text-[16px]">Get Started Now</Link>
           </div>
         </div>
       </div>
