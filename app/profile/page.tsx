@@ -11,6 +11,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
 
+  // Route protection
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
@@ -36,6 +37,7 @@ export default function ProfilePage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
+      // fallback — select text approach
     }
   };
 
@@ -48,6 +50,7 @@ export default function ProfilePage() {
           url: `https://pharmacademy.in/ref/${referralCode}`,
         });
       } catch {
+        // cancelled
       }
     } else {
       handleCopy();
@@ -66,6 +69,7 @@ export default function ProfilePage() {
   return (
     <section className="py-8 lg:py-12" style={{ background: "#F9F8F7", minHeight: "calc(100vh - 64px)" }}>
       <div className="container-main max-w-2xl">
+        {/* Profile header */}
         <div
           className="rounded-2xl p-6 sm:p-8 mb-6 flex flex-col sm:flex-row items-center gap-6"
           style={{ background: "var(--color-navy)" }}
@@ -130,8 +134,10 @@ export default function ProfilePage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {/* Streak */}
           <StreakWidget streak={userProfile?.streak || 0} completedToday={false} />
 
+          {/* Referral */}
           <div
             className="rounded-2xl p-5 flex flex-col gap-3"
             style={{
@@ -146,6 +152,7 @@ export default function ProfilePage() {
               Share your code and earn free premium days!
             </p>
 
+            {/* Code display */}
             <div
               className="flex items-center gap-2 px-4 py-3 rounded-lg"
               style={{
@@ -181,6 +188,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* Account actions */}
         <div className="mt-8 flex flex-col gap-2">
           <button
             onClick={handleLogout}

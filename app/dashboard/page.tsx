@@ -11,6 +11,7 @@ export default function DashboardPage() {
   const { user, userProfile, loading, isPremium } = useAuth();
   const router = useRouter();
 
+  // Route Protection
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
