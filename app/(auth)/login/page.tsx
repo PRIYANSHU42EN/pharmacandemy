@@ -60,12 +60,11 @@ export default function LoginPage() {
       return;
     }
 
-    if (loading) return; // Prevent double submission
+    if (loading) return; 
     setError("");
     setLoading(true);
     try {
       await loginWithEmail(email, password);
-      // Clear attempts on success
       if (typeof window !== "undefined") localStorage.removeItem("loginAttempts");
       router.push("/dashboard");
     } catch (err: unknown) {
@@ -108,39 +107,15 @@ export default function LoginPage() {
       >
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <span
-              className="text-[20px] font-medium"
-              style={{ fontFamily: "var(--font-body)", color: "var(--color-navy)" }}
-            >
-              Pharma
-            </span>
-            <span
-              className="text-[20px] font-bold"
-              style={{ fontFamily: "var(--font-display)", color: "var(--color-candy-rose)" }}
-            >
-              Cademy
-            </span>
+            <span className="text-[20px] font-medium" style={{ fontFamily: "var(--font-body)", color: "var(--color-navy)" }}>Pharma</span>
+            <span className="text-[20px] font-bold" style={{ fontFamily: "var(--font-display)", color: "var(--color-candy-rose)" }}>Cademy</span>
           </div>
-          <h1
-            className="text-[24px] mb-1"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Welcome Back
-          </h1>
-          <p className="text-[14px]" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
-            Sign in to continue learning
-          </p>
+          <h1 className="text-[24px] mb-1" style={{ fontFamily: "var(--font-display)" }}>Welcome Back</h1>
+          <p className="text-[14px]" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>Sign in to continue learning</p>
         </div>
 
         {error && (
-          <div
-            className="rounded-lg px-4 py-3 mb-4 text-[13px]"
-            style={{
-              background: "rgba(239,68,68,0.08)",
-              color: "#dc2626",
-              fontFamily: "var(--font-body)",
-            }}
-          >
+          <div className="rounded-lg px-4 py-3 mb-4 text-[13px]" style={{ background: "rgba(239,68,68,0.08)", color: "#dc2626", fontFamily: "var(--font-body)" }}>
             {error}
           </div>
         )}
@@ -149,12 +124,7 @@ export default function LoginPage() {
           onClick={handleGoogle}
           disabled={loading || isLockedOut}
           className="w-full flex items-center justify-center gap-3 py-3 rounded-xl text-[14px] font-medium mb-4 transition-all hover:shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
-          style={{
-            background: "rgba(26,31,60,0.03)",
-            border: "1px solid rgba(26,31,60,0.1)",
-            fontFamily: "var(--font-body)",
-            color: "var(--color-navy)",
-          }}
+          style={{ background: "rgba(26,31,60,0.03)", border: "1px solid rgba(26,31,60,0.1)", fontFamily: "var(--font-body)", color: "var(--color-navy)" }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -167,102 +137,26 @@ export default function LoginPage() {
 
         <div className="flex items-center gap-3 mb-4">
           <div className="flex-1 h-px" style={{ background: "rgba(26,31,60,0.08)" }} />
-          <span className="text-[11px] uppercase tracking-widest" style={{ color: "var(--color-slate)", fontFamily: "var(--font-body)" }}>
-            or
-          </span>
+          <span className="text-[11px] uppercase tracking-widest" style={{ color: "var(--color-slate)", fontFamily: "var(--font-body)" }}>or</span>
           <div className="flex-1 h-px" style={{ background: "rgba(26,31,60,0.08)" }} />
         </div>
 
         <form onSubmit={handleEmail} className="flex flex-col gap-3">
           <div>
-            <label
-              htmlFor="login-email"
-              className="block text-[12px] font-medium mb-1.5"
-              style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}
-            >
-              Email
-            </label>
-            <input
-              id="login-email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-2.5 rounded-lg outline-none text-[14px] transition-all"
-              style={{
-                background: "rgba(26,31,60,0.02)",
-                border: "1px solid rgba(26,31,60,0.1)",
-                fontFamily: "var(--font-body)",
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "var(--color-candy-rose)";
-                e.target.style.boxShadow = "0 0 0 3px rgba(247,197,216,0.15)";
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "rgba(26,31,60,0.1)";
-                e.target.style.boxShadow = "none";
-              }}
-              placeholder="you@example.com"
-            />
+            <label htmlFor="login-email" className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>Email</label>
+            <input id="login-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-4 py-2.5 rounded-lg outline-none text-[14px] transition-all" style={{ background: "rgba(26,31,60,0.02)", border: "1px solid rgba(26,31,60,0.1)", fontFamily: "var(--font-body)" }} placeholder="you@example.com" />
           </div>
-
           <div>
-            <label
-              htmlFor="login-password"
-              className="block text-[12px] font-medium mb-1.5"
-              style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}
-            >
-              Password
-            </label>
-            <input
-              id="login-password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              className="w-full px-4 py-2.5 rounded-lg outline-none text-[14px] transition-all"
-              style={{
-                background: "rgba(26,31,60,0.02)",
-                border: "1px solid rgba(26,31,60,0.1)",
-                fontFamily: "var(--font-body)",
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "var(--color-candy-rose)";
-                e.target.style.boxShadow = "0 0 0 3px rgba(247,197,216,0.15)";
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "rgba(26,31,60,0.1)";
-                e.target.style.boxShadow = "none";
-              }}
-              placeholder="••••••••"
-            />
+            <label htmlFor="login-password" className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>Password</label>
+            <input id="login-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="w-full px-4 py-2.5 rounded-lg outline-none text-[14px] transition-all" style={{ background: "rgba(26,31,60,0.02)", border: "1px solid rgba(26,31,60,0.1)", fontFamily: "var(--font-body)" }} placeholder="••••••••" />
           </div>
-
-          <button
-            type="submit"
-            disabled={loading || isLockedOut}
-            className="btn btn-accent w-full justify-center text-[14px] py-3 mt-2"
-            style={{ opacity: loading || isLockedOut ? 0.7 : 1, cursor: isLockedOut ? "not-allowed" : undefined }}
-          >
+          <button type="submit" disabled={loading || isLockedOut} className="btn btn-accent w-full justify-center text-[14px] py-3 mt-2" style={{ opacity: loading || isLockedOut ? 0.7 : 1, cursor: isLockedOut ? "not-allowed" : undefined }}>
             {loading ? "Signing in…" : "Sign In"}
           </button>
         </form>
 
-        <p
-          className="text-center mt-6 text-[13px]"
-          style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}
-        >
-          Don&apos;t have an account?{" "}
-          <Link
-            href="/signup"
-            className="font-medium transition-colors hover:underline"
-            style={{ color: "var(--color-candy-rose)" }}
-          >
-            Sign up
-          </Link>
+        <p className="text-center mt-6 text-[13px]" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
+          Don&apos;t have an account? <Link href="/signup" className="font-medium transition-colors hover:underline" style={{ color: "var(--color-candy-rose)" }}>Sign up</Link>
         </p>
       </div>
     </section>

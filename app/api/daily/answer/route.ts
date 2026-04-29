@@ -5,28 +5,12 @@ import { FieldValue } from "firebase-admin/firestore";
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
+    if (!authHeader?.startsWith("Bearer ")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const idToken = authHeader.replace("Bearer ", "");
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(idToken);
-    } catch {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
     const userId = decodedToken.uid;
 
-    const { questionId, answer } = await req.json();
-
-    if (!questionId) {
-      return NextResponse.json({ error: "Missing questionId" }, { status: 400 });
-    }
-
-    // In production:
-    // 1. Check if already answered today
-    // 2. Record answer in userProgress
-    // 3. Update streak
+    const { questionId } = await req.json();
     const userRef = adminDb.collection("users").doc(userId);
     const user = await userRef.get();
     const userData = user.data();
@@ -44,15 +28,8 @@ export async function POST(req: NextRequest) {
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    console.log(`Daily answer recorded: user ${userId}, question ${questionId}`);
-
-    return NextResponse.json({
-      success: true,
-      streak: newStreak,
-      message: "Answer recorded, streak updated!",
-    });
+    return NextResponse.json({ success: true, streak: newStreak });
   } catch (error) {
-    console.error("Daily answer error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Error" }, { status: 500 });
   }
 }

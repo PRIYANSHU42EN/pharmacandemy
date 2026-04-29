@@ -48,27 +48,13 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (name.trim().length < 2) {
-      setError("Please enter your full name.");
-      return;
-    }
+    if (name.trim().length < 2) { setError("Please enter your full name."); return; }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError("Please enter a valid email address.");
-      return;
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
-    }
+    if (!emailRegex.test(email)) { setError("Please enter a valid email address."); return; }
+    if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
 
     const rateLimitCheck = checkRateLimit();
-    if (rateLimitCheck !== true) {
-      setError(rateLimitCheck);
-      setIsLockedOut(true);
-      return;
-    }
+    if (rateLimitCheck !== true) { setError(rateLimitCheck); setIsLockedOut(true); return; }
 
     if (loading) return;
     setError("");
@@ -80,12 +66,8 @@ export default function SignupPage() {
     } catch (err: unknown) {
       recordFailedAttempt();
       const newCheck = checkRateLimit();
-      if (newCheck !== true) {
-        setError(newCheck);
-        setIsLockedOut(true);
-      } else {
-        setError(err instanceof Error ? err.message : "Signup failed. Try again.");
-      }
+      if (newCheck !== true) { setError(newCheck); setIsLockedOut(true); }
+      else { setError(err instanceof Error ? err.message : "Signup failed. Try again."); }
     } finally {
       setLoading(false);
     }
@@ -109,40 +91,19 @@ export default function SignupPage() {
     <section className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4">
       <div
         className="w-full max-w-[420px] rounded-2xl p-8"
-        style={{
-          background: "var(--color-cream)",
-          border: "0.5px solid #e0e0e0",
-          boxShadow: "0 4px 24px rgba(26,31,60,0.06)",
-        }}
+        style={{ background: "var(--color-cream)", border: "0.5px solid #e0e0e0", boxShadow: "0 4px 24px rgba(26,31,60,0.06)" }}
       >
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <span
-              className="text-[20px] font-medium"
-              style={{ fontFamily: "var(--font-body)", color: "var(--color-navy)" }}
-            >
-              Pharma
-            </span>
-            <span
-              className="text-[20px] font-bold"
-              style={{ fontFamily: "var(--font-display)", color: "var(--color-candy-rose)" }}
-            >
-              Cademy
-            </span>
+            <span className="text-[20px] font-medium" style={{ fontFamily: "var(--font-body)", color: "var(--color-navy)" }}>Pharma</span>
+            <span className="text-[20px] font-bold" style={{ fontFamily: "var(--font-display)", color: "var(--color-candy-rose)" }}>Cademy</span>
           </div>
-          <h1 className="text-[24px] mb-1" style={{ fontFamily: "var(--font-display)" }}>
-            Create Account
-          </h1>
-          <p className="text-[14px]" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
-            Join thousands of pharmacy students
-          </p>
+          <h1 className="text-[24px] mb-1" style={{ fontFamily: "var(--font-display)" }}>Create Account</h1>
+          <p className="text-[14px]" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>Join thousands of pharmacy students</p>
         </div>
 
         {error && (
-          <div
-            className="rounded-lg px-4 py-3 mb-4 text-[13px]"
-            style={{ background: "rgba(239,68,68,0.08)", color: "#dc2626", fontFamily: "var(--font-body)" }}
-          >
+          <div className="rounded-lg px-4 py-3 mb-4 text-[13px]" style={{ background: "rgba(239,68,68,0.08)", color: "#dc2626", fontFamily: "var(--font-body)" }}>
             {error}
           </div>
         )}
@@ -151,12 +112,7 @@ export default function SignupPage() {
           onClick={handleGoogle}
           disabled={loading || isLockedOut}
           className="w-full flex items-center justify-center gap-3 py-3 rounded-xl text-[14px] font-medium mb-4 transition-all hover:shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
-          style={{
-            background: "rgba(26,31,60,0.03)",
-            border: "1px solid rgba(26,31,60,0.1)",
-            fontFamily: "var(--font-body)",
-            color: "var(--color-navy)",
-          }}
+          style={{ background: "rgba(26,31,60,0.03)", border: "1px solid rgba(26,31,60,0.1)", fontFamily: "var(--font-body)", color: "var(--color-navy)" }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -175,96 +131,28 @@ export default function SignupPage() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div>
-            <label htmlFor="signup-name" className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
-              Full Name
-            </label>
-            <input
-              id="signup-name"
-              type="text"
-              autoComplete="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="w-full px-4 py-2.5 rounded-lg outline-none text-[14px] transition-all"
-              style={{ background: "rgba(26,31,60,0.02)", border: "1px solid rgba(26,31,60,0.1)", fontFamily: "var(--font-body)" }}
-              onFocus={(e) => { e.target.style.borderColor = "var(--color-candy-rose)"; e.target.style.boxShadow = "0 0 0 3px rgba(247,197,216,0.15)"; }}
-              onBlur={(e) => { e.target.style.borderColor = "rgba(26,31,60,0.1)"; e.target.style.boxShadow = "none"; }}
-              placeholder="Priya Sharma"
-            />
+            <label htmlFor="signup-name" className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>Full Name</label>
+            <input id="signup-name" type="text" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} required className="w-full px-4 py-2.5 rounded-lg outline-none text-[14px] transition-all" style={{ background: "rgba(26,31,60,0.02)", border: "1px solid rgba(26,31,60,0.1)", fontFamily: "var(--font-body)" }} placeholder="Priya Sharma" />
           </div>
-
           <div>
-            <label htmlFor="signup-email" className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
-              Email
-            </label>
-            <input
-              id="signup-email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-2.5 rounded-lg outline-none text-[14px] transition-all"
-              style={{ background: "rgba(26,31,60,0.02)", border: "1px solid rgba(26,31,60,0.1)", fontFamily: "var(--font-body)" }}
-              onFocus={(e) => { e.target.style.borderColor = "var(--color-candy-rose)"; e.target.style.boxShadow = "0 0 0 3px rgba(247,197,216,0.15)"; }}
-              onBlur={(e) => { e.target.style.borderColor = "rgba(26,31,60,0.1)"; e.target.style.boxShadow = "none"; }}
-              placeholder="you@example.com"
-            />
+            <label htmlFor="signup-email" className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>Email</label>
+            <input id="signup-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-4 py-2.5 rounded-lg outline-none text-[14px] transition-all" style={{ background: "rgba(26,31,60,0.02)", border: "1px solid rgba(26,31,60,0.1)", fontFamily: "var(--font-body)" }} placeholder="you@example.com" />
           </div>
-
           <div>
-            <label htmlFor="signup-password" className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
-              Password
-            </label>
-            <input
-              id="signup-password"
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              className="w-full px-4 py-2.5 rounded-lg outline-none text-[14px] transition-all"
-              style={{ background: "rgba(26,31,60,0.02)", border: "1px solid rgba(26,31,60,0.1)", fontFamily: "var(--font-body)" }}
-              onFocus={(e) => { e.target.style.borderColor = "var(--color-candy-rose)"; e.target.style.boxShadow = "0 0 0 3px rgba(247,197,216,0.15)"; }}
-              onBlur={(e) => { e.target.style.borderColor = "rgba(26,31,60,0.1)"; e.target.style.boxShadow = "none"; }}
-              placeholder="At least 6 characters"
-            />
+            <label htmlFor="signup-password" className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>Password</label>
+            <input id="signup-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="w-full px-4 py-2.5 rounded-lg outline-none text-[14px] transition-all" style={{ background: "rgba(26,31,60,0.02)", border: "1px solid rgba(26,31,60,0.1)", fontFamily: "var(--font-body)" }} placeholder="At least 6 characters" />
           </div>
-
           <div>
-            <label htmlFor="signup-referral" className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
-              Referral Code <span style={{ color: "var(--color-slate)" }}>(optional)</span>
-            </label>
-            <input
-              id="signup-referral"
-              type="text"
-              value={referral}
-              onChange={(e) => setReferral(e.target.value.toUpperCase())}
-              maxLength={6}
-              className="w-full px-4 py-2.5 rounded-lg outline-none text-[14px] transition-all uppercase tracking-widest"
-              style={{ background: "rgba(26,31,60,0.02)", border: "1px solid rgba(26,31,60,0.1)", fontFamily: "var(--font-mono)" }}
-              onFocus={(e) => { e.target.style.borderColor = "var(--color-candy-rose)"; e.target.style.boxShadow = "0 0 0 3px rgba(247,197,216,0.15)"; }}
-              onBlur={(e) => { e.target.style.borderColor = "rgba(26,31,60,0.1)"; e.target.style.boxShadow = "none"; }}
-              placeholder="ABC123"
-            />
+            <label htmlFor="signup-referral" className="block text-[12px] font-medium mb-1.5" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>Referral Code <span style={{ color: "var(--color-slate)" }}>(optional)</span></label>
+            <input id="signup-referral" type="text" value={referral} onChange={(e) => setReferral(e.target.value.toUpperCase())} maxLength={6} className="w-full px-4 py-2.5 rounded-lg outline-none text-[14px] transition-all uppercase tracking-widest" style={{ background: "rgba(26,31,60,0.02)", border: "1px solid rgba(26,31,60,0.1)", fontFamily: "var(--font-mono)" }} placeholder="ABC123" />
           </div>
-
-          <button
-            type="submit"
-            disabled={loading || isLockedOut}
-            className="btn btn-accent w-full justify-center text-[14px] py-3 mt-2"
-            style={{ opacity: loading || isLockedOut ? 0.7 : 1, cursor: isLockedOut ? "not-allowed" : undefined }}
-          >
+          <button type="submit" disabled={loading || isLockedOut} className="btn btn-accent w-full justify-center text-[14px] py-3 mt-2" style={{ opacity: loading || isLockedOut ? 0.7 : 1, cursor: isLockedOut ? "not-allowed" : undefined }}>
             {loading ? "Creating account…" : "Create Account"}
           </button>
         </form>
 
         <p className="text-center mt-6 text-[13px]" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
-          Already have an account?{" "}
-          <Link href="/login" className="font-medium transition-colors hover:underline" style={{ color: "var(--color-candy-rose)" }}>
-            Sign in
-          </Link>
+          Already have an account? <Link href="/login" className="font-medium transition-colors hover:underline" style={{ color: "var(--color-candy-rose)" }}>Sign in</Link>
         </p>
       </div>
     </section>
