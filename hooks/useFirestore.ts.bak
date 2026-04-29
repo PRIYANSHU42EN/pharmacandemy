@@ -1,0 +1,31 @@
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  getDoc,
+  doc, 
+  onSnapshot, 
+  orderBy, 
+  limit,
+  Timestamp,
+  Firestore
+} from "firebase/firestore";
+import { db } from "@/lib/firebase/config";
+import { supabase } from "@/lib/supabase/client";
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  role: string;
+  isPremium: boolean;
+  premiumExpiry: any;
+  createdAt: any;
+  updatedAt: any;
+  streak?: number;
+}
+
+// ... existing hooks ...
+// (I will only replace the useAdminUsers and useAdminStats part)

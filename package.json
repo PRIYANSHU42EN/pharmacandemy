@@ -1,0 +1,39 @@
+{
+  "name": "pharmacademy",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@colors/colors": "^1.6.0",
+    "@supabase/supabase-js": "^2.104.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "firebase": "^12.12.0",
+    "firebase-admin": "^13.8.0",
+    "firebase-tools": "^15.15.0",
+    "html2canvas": "^1.4.1",
+    "next": "16.2.4",
+    "razorpay": "^2.9.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-youtube": "^10.1.0",
+    "resend": "^6.12.2",
+    "zod": "^4.3.6",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.4",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
