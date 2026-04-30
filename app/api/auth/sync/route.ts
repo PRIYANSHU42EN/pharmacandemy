@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { supabase } from "@/lib/supabase/client";
 
 export async function POST(req: NextRequest) {
   try {
@@ -54,9 +53,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Sync to Supabase (Mirror for DB operations)
-    const client = supabaseAdmin || supabase;
-    if (client) {
-      const { error: pgError } = await client
+    if (supabaseAdmin) {
+      const { error: pgError } = await supabaseAdmin
         .from("users")
         .upsert({
           id: uid,
@@ -70,7 +68,7 @@ export async function POST(req: NextRequest) {
       if (pgError) {
         console.warn(`[Sync] ⚠️ Supabase sync warning: ${pgError.message}`);
       } else {
-        console.log(`[Sync] ✅ Supabase sync successful for ${uid} using ${supabaseAdmin ? 'admin' : 'public'} client`);
+        console.log(`[Sync] ✅ Supabase sync successful for ${uid}`);
       }
     }
 

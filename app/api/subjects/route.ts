@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase/client";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getCachedData } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
@@ -7,26 +7,56 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    // Support both courseId (from useSubjects hook) and semesterId
+    const id = searchParams.get("id");
     const courseId = searchParams.get("courseId");
     const semesterId = searchParams.get("semesterId");
 
-    if (!courseId && !semesterId) {
-      return NextResponse.json({ error: "courseId or semesterId is required" }, { status: 400 });
+    if (!supabaseAdmin) {
+      throw new Error("Supabase Admin client not initialized");
     }
 
-    const cacheKey = courseId
-      ? `subjects:course:${courseId}`
-      : `subjects:sem:${semesterId}`;
+    if (id) {
+      const { data, error } = await supabaseAdmin
+        .from("subjects")
+        .select("*")
+        .eq("id", id)
+        .single();
+      
+      if (error) throw error;
+      
+      return NextResponse.json({
+        id: data.id,
+        courseId: data.course_id,
+        semesterId: data.semester_id,
+        semesterNumber: data.semester_number,
+        name: data.name,
+        description: data.description,
+        coverImageUrl: data.cover_image_url,
+        isPremium: data.is_premium,
+        resourceCount: data.resource_count,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      });
+    }
+
+    if (!courseId && !semesterId) {
+      return NextResponse.json({ error: "id, courseId or semesterId is required" }, { status: 400 });
+    }
+
+    const cacheKey = courseId === "all" 
+      ? "subjects:all"
+      : courseId
+        ? `subjects:course:${courseId}`
+        : `subjects:sem:${semesterId}`;
 
     const subjects = await getCachedData(
       cacheKey,
       async () => {
-        let query = supabase.from("subjects").select("*");
+        let query = supabaseAdmin.from("subjects").select("*");
 
-        if (courseId) {
+        if (courseId && courseId !== "all") {
           query = query.eq("course_id", courseId);
-        } else {
+        } else if (semesterId) {
           query = query.eq("semester_id", semesterId);
         }
 

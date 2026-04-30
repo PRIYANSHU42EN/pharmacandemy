@@ -5,7 +5,7 @@ import Badge from "@/components/ui/Badge";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { RESOURCE_TYPES } from "@/constants";
 import { useCourses, useSubjects, useResources } from "@/hooks/useFirestore";
-import { supabase } from "@/lib/supabase/client";
+// import { supabase } from "@/lib/supabase/client";
 import { auth } from "@/lib/firebase/config";
 
 export default function AdminContentPage() {
@@ -25,6 +25,8 @@ export default function AdminContentPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMsg, setSuccessMsg] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Supabase Data State (Now using hooks)
   const { courses: allCourses, loading: coursesLoading } = useCourses();
@@ -40,6 +42,7 @@ export default function AdminContentPage() {
   // Hooks handle the fetching and real-time updates now.
 
   const handleCreate = async () => {
+    // ... existing validation
     const newErrors: Record<string, string> = {};
     if (!isAdmin) {
       alert("Unauthorized: Only admins can create content.");
@@ -119,12 +122,43 @@ export default function AdminContentPage() {
       setDescription("");
       setUrl("");
       setPreview("");
+      setSelectedFile(null);
       setTimeout(() => setSuccessMsg(""), 4000);
     } catch (e: any) {
       console.error("[Admin] Create failed:", e);
       alert("❌ Failed to save: " + (e.message || "Unknown error"));
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+    setIsUploading(true);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("bucket", "resources");
+
+      const response = await fetch("/api/admin/upload", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Upload failed");
+
+      setUrl(data.url);
+      setSuccessMsg("✅ File uploaded successfully!");
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (err: any) {
+      alert("❌ Upload failed: " + err.message);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -276,12 +310,50 @@ export default function AdminContentPage() {
                   {activeTab === "courses" ? "Course Code" : "Main Content Link"}
                 </label>
                 <div className="flex flex-col gap-2">
-                  <input 
-                    value={url}
-                    onChange={(e) => { setUrl(e.target.value); if(errors.url) setErrors({...errors, url: ""}); }}
-                    placeholder={activeTab === "courses" ? "e.g. bpharm" : "Paste G-Drive or YouTube link here..."}
-                    className={`w-full bg-white/5 border rounded-xl px-5 py-3 text-[14px] outline-none transition-all placeholder:text-white/20 ${errors.url ? 'border-red-500 bg-red-500/5' : 'border-white/10 focus:border-candy-rose/50'}`}
-                  />
+                  <div className="flex gap-2">
+                    <input 
+                      value={url}
+                      onChange={(e) => { setUrl(e.target.value); if(errors.url) setErrors({...errors, url: ""}); }}
+                      placeholder={activeTab === "courses" ? "e.g. bpharm" : "Paste G-Drive or YouTube link here..."}
+                      className={`flex-1 bg-white/5 border rounded-xl px-5 py-3 text-[14px] outline-none transition-all placeholder:text-white/20 ${errors.url ? 'border-red-500 bg-red-500/5' : 'border-white/10 focus:border-candy-rose/50'}`}
+                    />
+                    {activeTab === "resources" && (
+                      <div className="relative">
+                        <input 
+                          type="file"
+                          id="pdf-upload"
+                          className="hidden"
+                          accept=".pdf,.doc,.docx"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) setSelectedFile(file);
+                          }}
+                        />
+                        <label 
+                          htmlFor="pdf-upload"
+                          className="h-full px-4 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl flex items-center justify-center cursor-pointer transition-all"
+                        >
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                          </svg>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                  {selectedFile && (
+                    <div className="flex items-center justify-between bg-candy-rose/10 border border-candy-rose/20 rounded-lg px-4 py-2">
+                      <span className="text-[12px] text-candy-rose font-medium truncate max-w-[200px]">{selectedFile.name}</span>
+                      <button 
+                        onClick={handleUpload}
+                        disabled={isUploading}
+                        className="text-[11px] font-bold uppercase tracking-wider text-candy-rose hover:underline disabled:opacity-50"
+                      >
+                        {isUploading ? "Uploading..." : "Upload Now"}
+                      </button>
+                    </div>
+                  )}
                   {errors.url && <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider">{errors.url}</p>}
                 </div>
               </div>

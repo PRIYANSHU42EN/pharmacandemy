@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase/client";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getCachedData } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
@@ -7,10 +7,42 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
     const subjectId = searchParams.get("subjectId");
 
+    if (!supabaseAdmin) {
+      throw new Error("Supabase Admin client not initialized");
+    }
+
+    if (id) {
+      const { data, error } = await supabaseAdmin
+        .from("resources")
+        .select("*")
+        .eq("id", id)
+        .single();
+      
+      if (error) throw error;
+      if (data.is_deleted) return NextResponse.json({ error: "Resource not found" }, { status: 404 });
+      
+      return NextResponse.json({
+        id: data.id,
+        title: data.title,
+        description: data.description,
+        type: data.type,
+        url: data.url,
+        subjectId: data.subject_id,
+        courseId: data.course_id,
+        isPremium: data.is_premium,
+        previewImageUrl: data.preview_image_url,
+        tags: data.tags || [],
+        year: data.year,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      });
+    }
+
     if (!subjectId) {
-      return NextResponse.json({ error: "subjectId is required" }, { status: 400 });
+      return NextResponse.json({ error: "id or subjectId is required" }, { status: 400 });
     }
 
     const cacheKey = `resources:list:${subjectId}`;
@@ -18,7 +50,7 @@ export async function GET(req: NextRequest) {
     const resources = await getCachedData(
       cacheKey,
       async () => {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
           .from("resources")
           .select("*")
           .eq("subject_id", subjectId)

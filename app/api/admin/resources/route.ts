@@ -1,20 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase/admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { invalidateCache } from "@/lib/redis";
+import { verifyFirebaseToken, checkAdminRole } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const subjectId = searchParams.get("subjectId");
 
-    let query = supabaseAdmin?.from("resources").select("*").eq("is_deleted", false);
-    
-    if (subjectId) {
-      query = query?.eq("subject_id", subjectId);
+    if (!supabaseAdmin) {
+      throw new Error("Supabase Admin client not initialized");
     }
 
-    const { data, error } = await query!;
+    let query = supabaseAdmin.from("resources").select("*").eq("is_deleted", false);
+    
+    if (subjectId) {
+      query = query.eq("subject_id", subjectId);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
 
     return NextResponse.json(data);
@@ -25,23 +29,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    const decodedToken = await verifyFirebaseToken(req);
+    if (!decodedToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const idToken = authHeader.split("Bearer ")[1];
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const { uid } = decodedToken;
-
-    // Check if user is admin in Supabase
-    const { data: user, error: userError } = await supabaseAdmin!
-      .from("users")
-      .select("role")
-      .eq("id", uid)
-      .single();
-
-    if (userError || (user.role !== "admin" && user.role !== "super-admin")) {
+    const isAdmin = await checkAdminRole(decodedToken.uid);
+    if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
     }
 
@@ -87,18 +81,13 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    const decodedToken = await verifyFirebaseToken(req);
+    if (!decodedToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const idToken = authHeader.split("Bearer ")[1];
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const { uid } = decodedToken;
-
-    // Admin check
-    const { data: user } = await supabaseAdmin!.from("users").select("role").eq("id", uid).single();
-    if (user?.role !== "admin" && user?.role !== "super-admin") {
+    const isAdmin = await checkAdminRole(decodedToken.uid);
+    if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -131,18 +120,13 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    const decodedToken = await verifyFirebaseToken(req);
+    if (!decodedToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const idToken = authHeader.split("Bearer ")[1];
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const { uid } = decodedToken;
-
-    // Admin check
-    const { data: user } = await supabaseAdmin!.from("users").select("role").eq("id", uid).single();
-    if (user?.role !== "admin" && user?.role !== "super-admin") {
+    const isAdmin = await checkAdminRole(decodedToken.uid);
+    if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

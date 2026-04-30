@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { DONATION_PRESETS } from "@/constants";
-import { supabase } from "@/lib/supabase/client";
+// import { supabase } from "@/lib/supabase/client"; // Disabled
 
 function loadScript(src: string) {
   return new Promise((resolve) => {
@@ -39,12 +39,9 @@ export default function DonatePage() {
 
     setLoading(true);
     try {
-      // 1. Get Supabase Auth session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        throw new Error("Authentication session expired. Please re-login.");
-      }
-      const token = session.access_token;
+      // 1. Get Firebase Auth token
+      const idToken = await user.getIdToken();
+      const token = idToken;
 
       // 2. Load Razorpay SDK
       const isLoaded = await loadScript("https://checkout.razorpay.com/v1/checkout.js");
@@ -52,7 +49,7 @@ export default function DonatePage() {
         throw new Error("Razorpay SDK failed to load.");
       }
 
-      // 3. Create Order on backend (with Supabase auth token)
+      // 3. Create Order on backend (with auth token)
       const res = await fetch("/api/payments/create-order", {
         method: "POST",
         headers: { 
@@ -81,9 +78,8 @@ export default function DonatePage() {
         },
         handler: async function (response: any) {
           try {
-            // Get fresh session
-            const { data: { session: freshSession } } = await supabase.auth.getSession();
-            const freshToken = freshSession?.access_token || token;
+            // Get fresh token
+            const freshToken = await user.getIdToken(true);
 
             const verifyRes = await fetch("/api/payments/verify", {
               method: "POST",

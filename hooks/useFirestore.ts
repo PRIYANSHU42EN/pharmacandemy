@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase/client";
+// import { supabase } from "@/lib/supabase/client"; // DISABLED for security proxy
 import { db } from "@/lib/firebase/config";
 import { 
   collection, 
@@ -92,14 +92,15 @@ export function useCourses() {
     }
     fetchCourses();
 
-    const channel = supabase
-      .channel('courses-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'courses' }, () => {
-        fetchCourses();
-      })
-      .subscribe();
+    // Real-time disabled in Secure Proxy Mode
+    // const channel = supabase
+    //   .channel('courses-changes')
+    //   .on('postgres_changes', { event: '*', schema: 'public', table: 'courses' }, () => {
+    //     fetchCourses();
+    //   })
+    //   .subscribe();
 
-    return () => { channel.unsubscribe(); };
+    // return () => { channel.unsubscribe(); };
   }, [refreshCount]);
 
   return { courses, loading, error, refresh: () => { setRefreshCount(c => c + 1); setLoading(true); } };
@@ -118,38 +119,20 @@ export function useCourse(courseId: string) {
   const [refreshCount, setRefreshCount] = useState(0);
 
   useEffect(() => {
-    if (!courseId) {
-      setLoading(false);
-      return;
-    }
     async function fetchCourse() {
       try {
-        const { data, error } = await supabase
-          .from('courses')
-          .select('*')
-          .eq('id', courseId)
-          .single();
+        const response = await fetch(`/api/courses?id=${courseId}`);
+        const data = await response.json();
         
-        if (error) throw error;
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch course');
         
         if (mounted.current) {
-          const mapped = {
-            id: data.id,
-            name: data.name,
-            code: data.code,
-            description: data.description,
-            order: data.order,
-            isActive: data.is_active,
-            createdAt: data.created_at,
-            updatedAt: data.updated_at
-          };
-
-          setCourse(mapped as any);
-          dataCache.set(cacheKey, mapped);
+          setCourse(data);
+          dataCache.set(cacheKey, data);
           setError(null);
         }
       } catch (err: any) {
-        console.error("[Supabase] useCourse error:", err.message);
+        console.error("[API] useCourse error:", err.message);
         if (mounted.current) setError(err);
       } finally {
         if (mounted.current) setLoading(false);
@@ -174,39 +157,20 @@ export function useSemesters(courseId: string) {
   const [refreshCount, setRefreshCount] = useState(0);
 
   useEffect(() => {
-    if (!courseId) {
-      setSemesters([]);
-      setLoading(false);
-      return;
-    }
     async function fetchSemesters() {
       try {
-        const { data, error } = await supabase
-          .from('semesters')
-          .select('*')
-          .eq('course_id', courseId)
-          .eq('is_active', true)
-          .order('number', { ascending: true });
+        const response = await fetch(`/api/semesters?courseId=${courseId}`);
+        const data = await response.json();
         
-        if (error) throw error;
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch semesters');
         
         if (mounted.current) {
-          const mapped = (data || []).map(s => ({
-            id: s.id,
-            courseId: s.course_id,
-            number: s.number,
-            name: s.name,
-            isActive: s.is_active,
-            createdAt: s.created_at,
-            updatedAt: s.updated_at
-          }));
-
-          setSemesters(mapped as any);
-          dataCache.set(cacheKey, mapped);
+          setSemesters(data);
+          dataCache.set(cacheKey, data);
           setError(null);
         }
       } catch (err: any) {
-        console.error("[Supabase] useSemesters error:", err.message);
+        console.error("[API] useSemesters error:", err.message);
         if (mounted.current) setError(err);
       } finally {
         if (mounted.current) setLoading(false);
@@ -214,14 +178,7 @@ export function useSemesters(courseId: string) {
     }
     fetchSemesters();
     
-    const channel = supabase
-      .channel(`semesters-${courseId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'semesters', filter: `course_id=eq.${courseId}` }, () => {
-        fetchSemesters();
-      })
-      .subscribe();
-
-    return () => { channel.unsubscribe(); };
+    // Real-time disabled
   }, [courseId, refreshCount]);
 
   return { semesters, loading, error, refresh: () => { setRefreshCount(c => c + 1); setLoading(true); } };
@@ -238,36 +195,23 @@ export function useSemester(semesterId: string) {
   const mounted = useMountedRef();
 
   useEffect(() => {
-    if (!semesterId) {
-      setLoading(false);
-      return;
-    }
     async function fetchSemester() {
       try {
-        const { data, error } = await supabase
-          .from('semesters')
-          .select('*')
-          .eq('id', semesterId)
-          .single();
+        const response = await fetch(`/api/semesters?id=${semesterId}`);
+        const data = await response.json();
         
-        if (error) throw error;
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch semester');
         
-        const mapped = {
-          id: data.id,
-          courseId: data.course_id,
-          number: data.number,
-          name: data.name,
-          isActive: data.is_active,
-          createdAt: data.created_at,
-          updatedAt: data.updated_at
-        };
-
-        setSemester(mapped as any);
+        if (mounted.current) {
+          setSemester(data);
+          dataCache.set(cacheKey, data);
+          setError(null);
+        }
       } catch (err: any) {
-        console.error("[Supabase] useSemester error:", err);
-        setError(err);
+        console.error("[API] useSemester error:", err.message);
+        if (mounted.current) setError(err);
       } finally {
-        setLoading(false);
+        if (mounted.current) setLoading(false);
       }
     }
     fetchSemester();
@@ -287,33 +231,25 @@ export function useAllSubjects() {
   useEffect(() => {
     async function fetchAllSubjects() {
       try {
-        const { data, error } = await supabase
-          .from('subjects')
-          .select('*')
-          .order('name', { ascending: true })
-          .limit(200);
+        const response = await fetch('/api/subjects?all=true'); // Assume we add support for all=true or just fetch many
+        // Actually, let's just fetch without courseId if we want all
+        const resp = await fetch('/api/admin/content?table=subjects'); // Admin content API returns all
+        // Or better, let's just fetch with a limit or something.
+        // For now, let's just fetch from subjects API without courseId if we can.
+        const res = await fetch('/api/subjects?courseId=all'); // We'll handle this in the API
+        const data = await res.json();
         
-        if (error) throw error;
+        if (!res.ok) throw new Error(data.error || 'Failed to fetch subjects');
         
-        const mapped = (data || []).map(s => ({
-          id: s.id,
-          courseId: s.course_id,
-          semesterNumber: s.semester_number,
-          name: s.name,
-          description: s.description,
-          coverImageUrl: s.cover_image_url,
-          isPremium: s.is_premium,
-          resourceCount: s.resource_count,
-          createdAt: s.created_at,
-          updatedAt: s.updated_at
-        }));
-
-        setSubjects(mapped as any);
+        if (mounted.current) {
+          setSubjects(data);
+          setError(null);
+        }
       } catch (err: any) {
-        console.error("[Supabase] useAllSubjects error:", err);
-        setError(err);
+        console.error("[API] useAllSubjects error:", err.message);
+        if (mounted.current) setError(err);
       } finally {
-        setLoading(false);
+        if (mounted.current) setLoading(false);
       }
     }
     fetchAllSubjects();
@@ -417,34 +353,18 @@ export function useSubject(subjectId: string) {
     }
     async function fetchSubject() {
       try {
-        const { data, error } = await supabase
-          .from('subjects')
-          .select('*')
-          .eq('id', subjectId)
-          .single();
+        const response = await fetch(`/api/subjects?id=${subjectId}`);
+        const data = await response.json();
         
-        if (error) throw error;
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch subject');
         
         if (mounted.current) {
-          const mapped = {
-            id: data.id,
-            courseId: data.course_id,
-            semesterNumber: data.semester_number,
-            name: data.name,
-            description: data.description,
-            coverImageUrl: data.cover_image_url,
-            isPremium: data.is_premium,
-            resourceCount: data.resource_count,
-            createdAt: data.created_at,
-            updatedAt: data.updated_at
-          };
-
-          setSubject(mapped as any);
-          dataCache.set(cacheKey, mapped);
+          setSubject(data);
+          dataCache.set(cacheKey, data);
           setError(null);
         }
       } catch (err: any) {
-        console.error("[Supabase] useSubject error:", err.message);
+        console.error("[API] useSubject error:", err.message);
         if (mounted.current) setError(err);
       } finally {
         if (mounted.current) setLoading(false);
@@ -528,14 +448,9 @@ export function useResources(subjectId: string) {
 
     fetchResources();
 
-    const channel = supabase
-      .channel(`resources-${subjectId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'resources', filter: `subject_id=eq.${subjectId}` }, () => {
-        fetchResources();
-      })
-      .subscribe();
+    fetchResources();
 
-    return () => { channel.unsubscribe(); };
+    // Real-time disabled
   }, [subjectId, refreshCount]);
 
   return { resources, loading, error, refresh: () => { setRefreshCount(c => c + 1); setLoading(true); } };
@@ -559,40 +474,18 @@ export function useResource(resourceId: string) {
 
     async function fetchResource() {
       try {
-        const { data, error } = await supabase
-          .from('resources')
-          .select('*')
-          .eq('id', resourceId)
-          .single();
+        const response = await fetch(`/api/resources/list?id=${resourceId}`);
+        const data = await response.json();
         
-        if (error) throw error;
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch resource');
         
         if (mounted.current) {
-          if (data.is_deleted) {
-            setResource(null);
-          } else {
-            const mapped = {
-              id: data.id,
-              title: data.title,
-              description: data.description,
-              type: data.type,
-              url: data.url,
-              subjectId: data.subject_id,
-              courseId: data.course_id,
-              isPremium: data.is_premium,
-              previewImageUrl: data.preview_image_url,
-              tags: data.tags || [],
-              year: data.year,
-              createdAt: data.created_at,
-              updatedAt: data.updated_at
-            };
-            setResource(mapped as any);
-            dataCache.set(cacheKey, mapped);
-          }
+          setResource(data);
+          dataCache.set(cacheKey, data);
           setError(null);
         }
       } catch (err: any) {
-        console.error("[Supabase] useResource error:", err.message);
+        console.error("[API] useResource error:", err.message);
         if (mounted.current) setError(err);
       } finally {
         if (mounted.current) setLoading(false);
@@ -652,12 +545,13 @@ export function useAdminStats() {
 
     fetchStats();
 
-    const channel = supabase.channel('admin-stats-updates')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'resources' }, () => fetchStats())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => fetchStats())
-      .subscribe();
+    // Real-time updates disabled
+    // const channel = supabase.channel('admin-stats-updates')
+    //   .on('postgres_changes', { event: '*', schema: 'public', table: 'resources' }, () => fetchStats())
+    //   .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => fetchStats())
+    //   .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    // return () => { supabase.removeChannel(channel); };
   }, []);
 
   return { stats, loading };
@@ -705,24 +599,14 @@ export function useRealtimeAnalytics() {
 
     fetchInitialData();
 
-    const channel = supabase.channel('realtime-analytics')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'analytics_events' }, (payload) => {
-        const newEvent = payload.new;
-        setEvents(prev => [newEvent, ...prev].slice(0, 50));
-        
-        setMetrics(prev => {
-          const isView = newEvent.event_type === 'view' || newEvent.event_name === 'page_view';
-          const isLogin = newEvent.event_type === 'login' || newEvent.event_name === 'login';
-          return {
-            ...prev,
-            viewsToday: isView ? prev.viewsToday + 1 : prev.viewsToday,
-            loginsToday: isLogin ? prev.loginsToday + 1 : prev.loginsToday,
-          };
-        });
-      })
-      .subscribe();
+    // Real-time disabled
+    // const channel = supabase.channel('realtime-analytics')
+    //   .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'analytics_events' }, (payload) => {
+    //     ...
+    //   })
+    //   .subscribe();
 
-    return () => { channel.unsubscribe(); };
+    // return () => { channel.unsubscribe(); };
   }, []);
 
   return { events, metrics, loading };
@@ -772,17 +656,7 @@ export function useAdminUsers() {
 
     loadUsers();
     
-    const channel = supabase
-      .channel('admin-users-all')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
-        loadUsers();
-      })
-      .subscribe();
-
-    return () => {
-      isSubscribed = false;
-      channel.unsubscribe();
-    };
+    // Real-time disabled
   }, []);
 
   return { users, loading, error };

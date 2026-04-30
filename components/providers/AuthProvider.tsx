@@ -32,7 +32,7 @@ import {
 import type { UserProfile } from "@/types";
 import { getFriendlyAuthError } from "@/lib/firebase/errors";
 
-import { supabase } from "@/lib/supabase/client";
+// import { supabase } from \"@/lib/supabase/client\"; // Disabled for secure proxy architecture
 
 // ---------------------------------------------------------------------------
 // Sync user to Databases via Server API
@@ -41,21 +41,7 @@ async function syncUserToServer(user: FirebaseUser, displayName?: string) {
   try {
     const idToken = await user.getIdToken();
     
-    // Phase 4: Supabase Token Sync
-    console.log("[Auth] 🔄 Mirroring Firebase token to Supabase...");
-    const { data: supaData, error: supaError } = await supabase.auth.signInWithIdToken({
-      provider: "google", // Most Supabase versions use 'google' or 'key' for generic OIDC, but we'll try to use the Firebase token
-      token: idToken,
-    });
-
-    // Fallback if signInWithIdToken is not configured or fails
-    if (supaError) {
-      console.warn("[Auth] ⚠️ signInWithIdToken failed, falling back to setSession:", supaError.message);
-      await supabase.auth.setSession({
-        access_token: idToken,
-        refresh_token: "",
-      });
-    }
+    /* Proxy handles sync to Supabase internally */
 
     // Server-side profile sync (Role propagation)
     console.log("[Auth] 🔄 Syncing profile with backend...");
@@ -182,39 +168,14 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
             
             const profileData = await syncUserToServer(firebaseUser);
             
-            if (mountedRef.current) {
-              // Phase: Fetch role directly from Supabase for secure enforcement
-              try {
-                console.log(`[Auth] 🔄 Fetching secure role from Supabase for UID: ${firebaseUser.uid}...`);
-                const { data: dbUser, error: dbError } = await supabase
-                  .from("users")
-                  .select("role, is_premium")
-                  .eq("id", firebaseUser.uid)
-                  .maybeSingle();
-                
-                if (dbError) {
-                  console.warn("[Auth] ⚠️ Supabase role fetch error:", dbError.message);
-                }
+            if (mountedRef.current && profileData) {
+              console.log(`[Auth] 👤 Profile resolved: Role=${profileData.role}, Premium=${profileData.isPremium}`);
+              setUserProfile(profileData as UserProfile);
+              lastSyncedUid.current = firebaseUser.uid;
 
-                // Merge strategy: DB data > Sync response > Default user
-                const finalProfile = {
-                  ...(profileData || {}),
-                  role: dbUser?.role || profileData?.role || "user",
-                  isPremium: dbUser?.is_premium ?? profileData?.isPremium ?? false,
-                  uid: firebaseUser.uid,
-                };
-
-                console.log(`[Auth] 👤 Final profile resolved: Role=${finalProfile.role}, Premium=${finalProfile.isPremium}`);
-                setUserProfile(finalProfile as UserProfile);
-                lastSyncedUid.current = firebaseUser.uid;
-
-                // Track login event
-                const { analytics } = await import("@/lib/analytics");
-                analytics.track({ eventType: "login" });
-              } catch (e: any) {
-                console.error("[Auth] ❌ Role fetch exception:", e.message);
-                setUserProfile(profileData);
-              }
+              // Track login event
+              const { analytics } = await import("@/lib/analytics");
+              analytics.track({ eventType: "login" });
             }
             syncInProgress.current = false;
           }
@@ -224,7 +185,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setUserProfile(null);
         lastSyncedUid.current = null;
-        await supabase.auth.signOut();
+        // await supabase.auth.signOut(); // Disabled
       }
       
       // Phase 3: loading = false ONLY after everything completes

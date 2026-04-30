@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
-import { supabase } from "@/lib/supabase/client";
+// import { supabase } from "@/lib/supabase/client"; // Disabled
 
 const premiumFeatures = [
   { icon: "📝", title: "All PYQs", desc: "Last 10 years, every subject — organized by year" },

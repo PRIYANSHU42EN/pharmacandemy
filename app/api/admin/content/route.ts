@@ -1,30 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase/admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { verifyFirebaseToken, checkAdminRole } from "@/lib/auth-utils";
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    const decodedToken = await verifyFirebaseToken(req);
+    if (!decodedToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const idToken = authHeader.split("Bearer ")[1];
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const { uid } = decodedToken;
 
     if (!supabaseAdmin) {
       return NextResponse.json({ error: "Server configuration error: Database client missing" }, { status: 500 });
     }
 
-    // Check if user is admin in Supabase
-    const { data: user, error: userError } = await supabaseAdmin
-      .from("users")
-      .select("role")
-      .eq("id", uid)
-      .single();
-
-    if (userError || (user.role !== "admin" && user.role !== "super-admin")) {
+    const isAdmin = await checkAdminRole(decodedToken.uid);
+    if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
     }
 
@@ -65,22 +55,17 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    const decodedToken = await verifyFirebaseToken(req);
+    if (!decodedToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const idToken = authHeader.split("Bearer ")[1];
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const { uid } = decodedToken;
 
     if (!supabaseAdmin) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
     }
 
-    // Admin check
-    const { data: user } = await supabaseAdmin.from("users").select("role").eq("id", uid).single();
-    if (user?.role !== "admin" && user?.role !== "super-admin") {
+    const isAdmin = await checkAdminRole(decodedToken.uid);
+    if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -119,6 +104,47 @@ export async function DELETE(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+export async function GET(req: NextRequest) {
+  try {
+    const decodedToken = await verifyFirebaseToken(req);
+    if (!decodedToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    }
+
+    const isAdmin = await checkAdminRole(decodedToken.uid);
+    if (!isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const table = searchParams.get("table");
+
+    if (!table || !["resources", "subjects", "courses", "users"].includes(table)) {
+      return NextResponse.json({ error: "Invalid table" }, { status: 400 });
+    }
+
+    let query = supabaseAdmin.from(table).select("*");
+    
+    if (table === "resources") {
+      query = query.eq("is_deleted", false).order("created_at", { ascending: false });
+    } else if (table === "users") {
+      query = query.order("created_at", { ascending: false });
+    } else {
+      query = query.order("name", { ascending: true });
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return NextResponse.json(data);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
