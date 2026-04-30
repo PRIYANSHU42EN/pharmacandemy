@@ -328,9 +328,17 @@ export default function AdminContentPage() {
                     {successMsg}
                   </p>
                 )}
-                {!successMsg && (!title.trim() || !url.trim() || !subjectId) ? (
+                {!successMsg && (
+                  (activeTab === "resources" && (!title.trim() || !url.trim() || !subjectId)) ||
+                  (activeTab === "subjects" && (!title.trim() || !courseId)) ||
+                  (activeTab === "courses" && !title.trim())
+                ) ? (
                   <p className="text-[10px] text-center mt-4 text-gray-600 font-bold tracking-widest uppercase">
-                    Missing: {!title.trim() && "Title • "} {!subjectId && "Subject • "} {!url.trim() && "Link"}
+                    Missing: 
+                    {!title.trim() && " Title •"} 
+                    {activeTab === "resources" && !subjectId && " Subject •"} 
+                    {activeTab === "subjects" && !courseId && " Course •"}
+                    {activeTab === "resources" && !url.trim() && " Link"}
                   </p>
                 ) : (
                   <p className="text-[10px] text-center mt-4 text-green-500 font-bold tracking-widest uppercase">

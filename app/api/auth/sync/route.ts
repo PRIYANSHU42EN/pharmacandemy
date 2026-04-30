@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { supabase } from "@/lib/supabase/client";
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,8 +26,8 @@ export async function POST(req: NextRequest) {
       if (userSnap.exists) {
         existingData = userSnap.data();
       }
-    } catch (e) {
-      console.warn("[Sync] Firestore read failed:", e);
+    } catch (e: any) {
+      console.warn("[Sync] ⚠️ Firestore read failed (Likely API disabled):", e.message);
     }
 
     // Role Logic: Super Admin Priority > Existing Role > Default "user"
@@ -34,21 +35,28 @@ export async function POST(req: NextRequest) {
     const userRole = isSuperAdmin ? "admin" : (existingData?.role ?? "user");
     const isPremium = existingData?.isPremium ?? false;
 
-    // 2. Update Firestore (Source of Truth for Profile)
-    await userRef.set({
-      uid,
-      email: email || "",
-      displayName: userName,
-      isPremium,
-      premiumExpiry: existingData?.premiumExpiry || null,
-      role: userRole,
-      updatedAt: new Date().toISOString(),
-      createdAt: existingData?.createdAt || new Date().toISOString(),
-    }, { merge: true });
+    // 2. Update Firestore (Source of Truth for Profile) - Wrapped in try/catch
+    try {
+      await userRef.set({
+        uid,
+        email: email || "",
+        displayName: userName,
+        isPremium,
+        premiumExpiry: existingData?.premiumExpiry || null,
+        role: userRole,
+        updatedAt: new Date().toISOString(),
+        createdAt: existingData?.createdAt || new Date().toISOString(),
+      }, { merge: true });
+      console.log(`[Sync] ✅ Firestore update successful for ${email}`);
+    } catch (e: any) {
+      console.error("[Sync] ❌ Firestore write failed:", e.message);
+      // We continue to Supabase even if Firestore fails
+    }
 
     // 3. Sync to Supabase (Mirror for DB operations)
-    if (supabaseAdmin) {
-      const { error: pgError } = await supabaseAdmin
+    const client = supabaseAdmin || supabase;
+    if (client) {
+      const { error: pgError } = await client
         .from("users")
         .upsert({
           id: uid,
@@ -62,7 +70,7 @@ export async function POST(req: NextRequest) {
       if (pgError) {
         console.warn(`[Sync] ⚠️ Supabase sync warning: ${pgError.message}`);
       } else {
-        console.log(`[Sync] ✅ Supabase sync successful for ${uid}`);
+        console.log(`[Sync] ✅ Supabase sync successful for ${uid} using ${supabaseAdmin ? 'admin' : 'public'} client`);
       }
     }
 

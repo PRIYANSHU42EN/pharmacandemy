@@ -39,10 +39,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     // Phase 9: Debug
     if (!loading) {
-      console.log("[Admin] Auth State:", { 
-        user: user?.email, 
+      console.log("[Admin] 🔐 Auth Status:", { 
+        email: user?.email, 
         role: userProfile?.role, 
-        isAdmin 
+        isAdmin,
+        isLoaded: !loading
       });
 
       if (!user) {

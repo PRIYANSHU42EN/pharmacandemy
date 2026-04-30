@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { supabase } from "@/lib/supabase/client";
 import { getCachedData } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
@@ -13,16 +13,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "subjectId is required" }, { status: 400 });
     }
 
-    if (!supabaseAdmin) {
-      return NextResponse.json({ error: "Database not configured" }, { status: 500 });
-    }
-
     const cacheKey = `resources:list:${subjectId}`;
 
     const resources = await getCachedData(
       cacheKey,
       async () => {
-        const { data, error } = await supabaseAdmin!
+        const { data, error } = await supabase
           .from("resources")
           .select("*")
           .eq("subject_id", subjectId)

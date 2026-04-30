@@ -624,32 +624,35 @@ export function useAdminStats() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const { count: userCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
-        const { count: premiumCount } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('is_premium', true);
-        const { count: resourceCount } = await supabase.from('resources').select('*', { count: 'exact', head: true }).eq('is_deleted', false);
-        const { count: paymentCount } = await supabase.from('payments').select('*', { count: 'exact', head: true });
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const { count: activeToday } = await supabase.from('users').select('*', { count: 'exact', head: true }).gte('updated_at', today.toISOString());
-
-        setStats({
-          totalUsers: userCount || 0,
-          premiumUsers: premiumCount || 0,
-          activeToday: activeToday || 0,
-          totalResources: resourceCount || 0,
-          paymentCount: paymentCount || 0,
+        const { auth } = await import("@/lib/firebase/config");
+        const user = auth.currentUser;
+        if (!user) return;
+        
+        const token = await user.getIdToken();
+        const response = await fetch('/api/admin/stats', {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
+        const data = await response.json();
+
+        if (response.ok) {
+          setStats({
+            totalUsers: data.totalUsers || 0,
+            premiumUsers: data.premiumUsers || 0,
+            activeToday: data.loginsToday || 0,
+            totalResources: data.totalResources || 0,
+            paymentCount: 0,
+          });
+        }
       } catch (err) {
-        console.warn("[AdminStats] Supabase error:", err);
+        console.warn("[AdminStats] API error:", err);
       } finally {
         setLoading(false);
       }
     }
+
     fetchStats();
 
     const channel = supabase.channel('admin-stats-updates')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'resources' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => fetchStats())
       .subscribe();
@@ -676,41 +679,25 @@ export function useRealtimeAnalytics() {
   useEffect(() => {
     async function fetchInitialData() {
       try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
-
-        // Fetch views today
-        const { count: viewsToday } = await supabase
-          .from('analytics_events')
-          .select('*', { count: 'exact', head: true })
-          .eq('event_type', 'view')
-          .gte('created_at', today.toISOString());
-
-        // Fetch logins today
-        const { count: loginsToday } = await supabase
-          .from('analytics_events')
-          .select('*', { count: 'exact', head: true })
-          .eq('event_type', 'login')
-          .gte('created_at', today.toISOString());
-
-        // Fetch active now (users with events in last 5 mins)
-        const { data: activeEvents } = await supabase
-          .from('analytics_events')
-          .select('user_id')
-          .gte('created_at', fiveMinsAgo.toISOString());
+        const { auth } = await import("@/lib/firebase/config");
+        const user = auth.currentUser;
+        if (!user) return;
         
-        const activeNow = new Set(activeEvents?.map(e => e.user_id).filter(Boolean)).size;
-
-        setMetrics({
-          activeNow,
-          viewsToday: viewsToday || 0,
-          loginsToday: loginsToday || 0,
-          topResources: [], // Logic for top resources can be added here
+        const token = await user.getIdToken();
+        const response = await fetch('/api/admin/stats', {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
+        const data = await response.json();
+
+        if (response.ok) {
+          setMetrics(prev => ({
+            ...prev,
+            activeNow: data.activeNow || 0,
+            loginsToday: data.loginsToday || 0,
+          }));
+        }
       } catch (err) {
-        console.error("[Analytics] Fetch error:", err);
+        console.error("[Analytics] API error:", err);
       } finally {
         setLoading(false);
       }
@@ -723,15 +710,13 @@ export function useRealtimeAnalytics() {
         const newEvent = payload.new;
         setEvents(prev => [newEvent, ...prev].slice(0, 50));
         
-        // Optimistically update metrics
         setMetrics(prev => {
-          const isView = newEvent.event_type === 'view';
-          const isLogin = newEvent.event_type === 'login';
+          const isView = newEvent.event_type === 'view' || newEvent.event_name === 'page_view';
+          const isLogin = newEvent.event_type === 'login' || newEvent.event_name === 'login';
           return {
             ...prev,
             viewsToday: isView ? prev.viewsToday + 1 : prev.viewsToday,
             loginsToday: isLogin ? prev.loginsToday + 1 : prev.loginsToday,
-            activeNow: prev.activeNow // activeNow is harder to update optimistically correctly without a timer
           };
         });
       })
@@ -752,18 +737,19 @@ export function useAdminUsers() {
     let isSubscribed = true;
 
     async function loadUsers() {
-      if (!isSubscribed) return;
-      setLoading(true);
-      
       try {
-        const { data, error: supaErr } = await supabase
-          .from('users')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(200);
-          
-        if (isSubscribed && data) {
-          const mapped = data.map(u => ({
+        const { auth } = await import("@/lib/firebase/config");
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const token = await user.getIdToken();
+        const response = await fetch('/api/admin/users', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+
+        if (isSubscribed && response.ok) {
+          const mapped = data.map((u: any) => ({
             uid: u.id,
             email: u.email,
             displayName: u.name || u.email?.split('@')[0] || "User",
@@ -772,12 +758,13 @@ export function useAdminUsers() {
             createdAt: u.created_at,
             updatedAt: u.updated_at
           }));
-          setUsers(mapped as any);
+          setUsers(mapped);
+        } else if (!response.ok) {
+          throw new Error(data.error || "Failed to fetch users");
         }
-        if (supaErr) throw supaErr;
       } catch (err: any) {
-        console.error("[AdminUsers] Supabase load failed:", err);
-        setError(err);
+        console.error("[AdminUsers] API load failed:", err);
+        if (isSubscribed) setError(err);
       } finally {
         if (isSubscribed) setLoading(false);
       }

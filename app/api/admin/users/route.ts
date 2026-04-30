@@ -2,6 +2,50 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { adminAuth } from "@/lib/firebase/admin";
 
+export async function GET(request: Request) {
+  try {
+    const authHeader = request.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decodedToken = await adminAuth.verifyIdToken(token);
+
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    }
+
+    // Admin check
+    const { data: requester } = await supabaseAdmin
+      .from('users')
+      .select('role')
+      .eq('id', decodedToken.uid)
+      .single();
+
+    if (requester?.role !== 'admin' && requester?.role !== 'super-admin') {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get("limit") || "100");
+    const offset = parseInt(searchParams.get("offset") || "0");
+
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    console.error("[API/Admin/Users] GET Error:", error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function PATCH(request: Request) {
   try {
     const { uid, updates } = await request.json();

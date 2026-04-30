@@ -1,19 +1,15 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { supabase } from "@/lib/supabase/client";
 import { getCachedData } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    if (!supabaseAdmin) {
-      return NextResponse.json({ error: "Database not configured" }, { status: 500 });
-    }
-
     const courses = await getCachedData(
       "courses:active",
       async () => {
-        const { data, error } = await supabaseAdmin!
+        const { data, error } = await supabase
           .from("courses")
           .select("*")
           .eq("is_active", true)

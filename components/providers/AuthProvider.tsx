@@ -185,32 +185,34 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
             if (mountedRef.current) {
               // Phase: Fetch role directly from Supabase for secure enforcement
               try {
-                console.log("[Auth] 🔄 Fetching secure role from Supabase...");
+                console.log(`[Auth] 🔄 Fetching secure role from Supabase for UID: ${firebaseUser.uid}...`);
                 const { data: dbUser, error: dbError } = await supabase
                   .from("users")
                   .select("role, is_premium")
                   .eq("id", firebaseUser.uid)
-                  .single();
+                  .maybeSingle();
                 
                 if (dbError) {
                   console.warn("[Auth] ⚠️ Supabase role fetch error:", dbError.message);
                 }
 
+                // Merge strategy: DB data > Sync response > Default user
                 const finalProfile = {
-                  ...profileData,
+                  ...(profileData || {}),
                   role: dbUser?.role || profileData?.role || "user",
                   isPremium: dbUser?.is_premium ?? profileData?.isPremium ?? false,
                   uid: firebaseUser.uid,
                 };
 
+                console.log(`[Auth] 👤 Final profile resolved: Role=${finalProfile.role}, Premium=${finalProfile.isPremium}`);
                 setUserProfile(finalProfile as UserProfile);
                 lastSyncedUid.current = firebaseUser.uid;
 
                 // Track login event
                 const { analytics } = await import("@/lib/analytics");
                 analytics.track({ eventType: "login" });
-              } catch (e) {
-                console.error("[Auth] ❌ Role fetch exception:", e);
+              } catch (e: any) {
+                console.error("[Auth] ❌ Role fetch exception:", e.message);
                 setUserProfile(profileData);
               }
             }

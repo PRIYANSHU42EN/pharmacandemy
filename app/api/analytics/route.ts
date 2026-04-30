@@ -1,25 +1,29 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { supabase } from "@/lib/supabase/client";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { events } = body; // Support batching
 
-    if (!supabaseAdmin) {
+    if (!supabase) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
     }
 
-    const eventsToInsert = Array.isArray(events) ? events : [body];
+    const eventsToInsert = (Array.isArray(events) ? events : [body]).filter(e => e && (e.eventType || e.event_type));
 
-    const { error } = await supabaseAdmin
+    if (eventsToInsert.length === 0) {
+      return NextResponse.json({ success: true, count: 0 });
+    }
+
+    const { error } = await supabase
       .from('analytics_events')
       .insert(eventsToInsert.map(event => ({
-        user_id: event.userId || null,
-        event_type: event.eventType,
-        resource_id: event.resourceId || null,
+        user_id: event.userId || event.user_id || null,
+        event_type: event.eventType || event.event_type,
+        resource_id: event.resourceId || event.resource_id || null,
         metadata: event.metadata || {},
-        created_at: event.createdAt || new Date().toISOString()
+        created_at: event.createdAt || event.created_at || new Date().toISOString()
       })));
 
     if (error) throw error;
