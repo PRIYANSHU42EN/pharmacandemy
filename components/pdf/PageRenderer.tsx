@@ -62,6 +62,9 @@ const PageRenderer = memo(({ page, scale, pageNum, isVisible }: PageRendererProp
         textLayerDiv.style.width = `${displayViewport.width}px`;
         textLayerDiv.style.height = `${displayViewport.height}px`;
         
+        // CRITICAL: Set --scale-factor for PDF.js text layer accuracy
+        textLayerDiv.style.setProperty("--scale-factor", scale.toString());
+        
         await pdfjsLib.renderTextLayer({
           textContent,
           container: textLayerDiv,
@@ -97,7 +100,7 @@ const PageRenderer = memo(({ page, scale, pageNum, isVisible }: PageRendererProp
   return (
     <div 
       className="relative mb-6 sm:mb-10 bg-white shadow-xl transition-all duration-300 mx-auto group border border-gray-100 pdf-page"
-      style={placeholderStyle}
+      style={{ ...placeholderStyle, "--scale-factor": scale.toString() } as React.CSSProperties}
       onContextMenu={(e) => e.preventDefault()} // Security: Disable right-click on pages
     >
       <canvas 

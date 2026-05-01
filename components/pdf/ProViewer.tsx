@@ -15,7 +15,7 @@ interface ProViewerProps {
 }
 
 export default function ProViewer({ url, title, resourceId, isPremiumResource = false }: ProViewerProps) {
-  const { user } = useAuth();
+  const { user, isPremium } = useAuth();
   const [pdf, setPdf] = useState<any>(null);
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -24,12 +24,12 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
   const [error, setError] = useState<string | null>(null);
   const [pages, setPages] = useState<any[]>([]);
   const [isResuming, setIsResuming] = useState(false);
-  
+
   // Learning Features State
   const [notes, setNotes] = useState<any[]>([]);
   const [showNotes, setShowNotes] = useState(false);
   const [sessionTime, setSessionTime] = useState(0);
-  
+
   const containerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
@@ -37,13 +37,13 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
   useEffect(() => {
     const initPdf = async () => {
       if (!url) return;
-      
+
       try {
         setLoading(true);
         setError(null);
-        
+
         const PDF_VERSION = "3.11.174";
-        
+
         // 1. Load PDF.js Script if not present
         if (!(window as any).pdfjsLib) {
           await new Promise<void>((resolve, reject) => {
@@ -63,13 +63,13 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
         let response: Response | null = null;
         let attempts = 0;
         const maxAttempts = 3;
-        
+
         while (attempts < maxAttempts) {
           try {
             console.log(`[ProViewer] Fetching PDF (Attempt ${attempts + 1}/${maxAttempts})...`);
             response = await fetch(url);
             if (response.ok) break;
-            
+
             if (response.status === 403) throw new Error("Access denied (Premium required).");
             if (response.status === 404) throw new Error("PDF file not found.");
           } catch (err: any) {
@@ -83,7 +83,7 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
         if (!response || !response.ok) {
           throw new Error(`Connection failed (${response?.status || 'Network Error'})`);
         }
-        
+
         // Allow octet-stream for legacy GDrive links proxied via server
         const contentType = response.headers.get("content-type") || "";
         if (contentType && !contentType.includes("pdf") && !contentType.includes("octet-stream") && !url.includes(".pdf")) {
@@ -103,7 +103,7 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
         const pdfDoc = await loadingTask.promise;
         setPdf(pdfDoc);
         setNumPages(pdfDoc.numPages);
-        
+
         const pagePromises = [];
         for (let i = 1; i <= pdfDoc.numPages; i++) {
           pagePromises.push(pdfDoc.getPage(i));
@@ -125,7 +125,7 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
               }, 600);
             }
           }
-          
+
           const storedNotes = localStorage.getItem(`pdf_notes_${resourceId}`);
           if (storedNotes) setNotes(JSON.parse(storedNotes));
         }
@@ -138,7 +138,7 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
     };
 
     initPdf();
-    return () => { if (pdf) { pdf.destroy().catch(() => {}); } };
+    return () => { if (pdf) { pdf.destroy().catch(() => { }); } };
   }, [url, resourceId]);
 
   // Track scroll position, update page, save progress, and track analytics
@@ -153,7 +153,7 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
             setCurrentPage(pageNum);
             if (resourceId) {
               localStorage.setItem(`pdf_pos_${resourceId}`, pageNum.toString());
-              
+
               // Analytics: Track page view
               import("@/lib/analytics").then(({ analytics }) => {
                 analytics.track({
@@ -227,9 +227,9 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
   }, [numPages, isResuming]);
 
   const canViewPage = useCallback((index: number) => {
-    if (!isPremiumResource || user?.is_premium) return true;
+    if (!isPremiumResource || isPremium) return true;
     return index < 3;
-  }, [user?.is_premium, isPremiumResource]);
+  }, [isPremium, isPremiumResource]);
 
   if (loading) return (
     <div className="flex flex-col h-[85vh] bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-2xl p-8">
@@ -245,8 +245,8 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
       <div className="flex flex-col flex-1 relative overflow-hidden bg-[#525659]">
         {/* Visual Progress Bar */}
         <div className="absolute top-0 left-0 h-[3px] bg-candy-rose z-[60] transition-all duration-300 shadow-[0_0_10px_rgba(247,197,216,0.5)]" style={{ width: `${(currentPage / numPages) * 100}%` }} />
-        
-        <Toolbar 
+
+        <Toolbar
           pageNum={currentPage}
           numPages={numPages}
           scale={scale}
@@ -259,8 +259,8 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
           title={title}
         />
 
-        <div 
-          ref={containerRef} 
+        <div
+          ref={containerRef}
           className="flex-1 overflow-auto p-4 sm:p-10 scroll-smooth custom-scrollbar relative"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
@@ -304,7 +304,7 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
           </div>
           <button onClick={() => setShowNotes(false)} className="p-2 rounded-full hover:bg-gray-100 text-gray-400 transition-colors"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></button>
         </div>
-        
+
         <div className="flex-1 overflow-auto p-5 space-y-5 custom-scrollbar">
           {notes.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-10">
@@ -322,7 +322,7 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
                 <p className="text-[13px] text-gray-700 leading-relaxed font-medium">"{note.text}"</p>
                 <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between">
                   <span className="text-[10px] text-gray-400 font-mono">{new Date(note.createdAt).toLocaleDateString()}</span>
-                  <button onClick={() => handleJumpToPage(note.page)} className="text-[11px] font-extrabold text-navy hover:text-candy-rose transition-colors flex items-center gap-1">GO TO SOURCE <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+                  <button onClick={() => handleJumpToPage(note.page)} className="text-[11px] font-extrabold text-navy hover:text-candy-rose transition-colors flex items-center gap-1">GO TO SOURCE <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg></button>
                 </div>
               </div>
             ))
@@ -344,7 +344,7 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
           <span className="tracking-tight">RESUMING YOUR SESSION FROM PAGE {currentPage}</span>
         </div>
       )}
-      
+
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }

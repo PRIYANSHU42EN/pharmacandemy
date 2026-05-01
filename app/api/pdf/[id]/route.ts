@@ -33,10 +33,12 @@ export async function GET(
 
     // Check if the response is actually a PDF (sometimes Drive returns an HTML error page even with 200)
     const contentType = response.headers["content-type"];
-    if (contentType && !contentType.includes("application/pdf")) {
-       console.warn(`[PDF Proxy] Unexpected content type: ${contentType}`);
+    const contentTypeString = typeof contentType === "string" ? contentType : "";
+
+    if (contentTypeString && !contentTypeString.includes("application/pdf")) {
+       console.warn(`[PDF Proxy] Unexpected content type: ${contentTypeString}`);
        // If it's not a PDF, it might be an error page or auth prompt
-       if (contentType.includes("text/html")) {
+       if (contentTypeString.includes("text/html")) {
           return NextResponse.json({ error: "Google Drive link is invalid or private" }, { status: 403 });
        }
     }

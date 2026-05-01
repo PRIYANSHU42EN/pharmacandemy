@@ -3,7 +3,7 @@
 import { auth } from "@/lib/firebase/config";
 
 interface AnalyticsEvent {
-  eventType: 'view' | 'login' | 'payment' | 'search' | 'nav';
+  eventType: 'view' | 'login' | 'payment' | 'search' | 'nav' | 'pdf_page_view' | 'pdf_session_end';
   resourceId?: string;
   metadata?: Record<string, any>;
 }

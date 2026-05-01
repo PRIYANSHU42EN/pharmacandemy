@@ -9,6 +9,7 @@ import {
   useCallback,
   useRef,
   type ReactNode,
+  Suspense,
 } from "react";
 import { auth, db } from "@/lib/firebase/config";
 import {
@@ -49,7 +50,7 @@ async function syncUserToServer(user: FirebaseUser, displayName?: string) {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${idToken}`
       },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         displayName,
         referralCode: localStorage.getItem("refCode")
       }),
@@ -65,7 +66,7 @@ async function syncUserToServer(user: FirebaseUser, displayName?: string) {
     } else {
       const data = await response.json();
       console.log(`[Auth] ✅ Sync successful: Premium=${data.profile.isPremium}`);
-      
+
       // Cleanup referral code after successful sync
       localStorage.removeItem("refCode");
 
@@ -106,6 +107,11 @@ export function useAuth(): AuthContextType {
   return ctx;
 }
 
+function ReferralTracker() {
+  useReferral();
+  return null;
+}
+
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -115,9 +121,6 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const lastSyncedUid = useRef<string | null>(null);
 
   const [showStreakToast, setShowStreakToast] = useState<number | null>(null);
-
-  // Referral System (Capture code from URL)
-  useReferral();
 
   // Daily Reminder System
   useReminder(user, userProfile);
@@ -135,7 +138,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         .select("id, email, name, role, is_premium, premium_expires_at, photo_url, streak, last_active_date")
         .eq("id", userId)
         .maybeSingle();
-        
+
       if (data && mountedRef.current) {
         setUserProfile({
           uid: data.id,
@@ -181,9 +184,9 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         if (firebaseUser.uid !== lastSyncedUid.current || shouldSync) {
           if (!syncInProgress.current) {
             syncInProgress.current = true;
-            
+
             const syncPromise = syncUserToServer(firebaseUser);
-            const timeoutPromise = new Promise<null>((resolve) => 
+            const timeoutPromise = new Promise<null>((resolve) =>
               setTimeout(() => {
                 console.warn("[Auth] ⚠️ Sync API timeout reached (10s). Proceeding with cache/db.");
                 resolve(null);
@@ -218,7 +221,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         setUserProfile(null);
         lastSyncedUid.current = null;
       }
-      
+
       if (mountedRef.current) {
         setLoading(false);
       }
@@ -305,10 +308,10 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       // Handle both Firestore Timestamp (with toDate) and Supabase/ISO strings
-      const expiryDate = typeof userProfile.premiumExpiry === 'string' 
+      const expiryDate = typeof userProfile.premiumExpiry === 'string'
         ? new Date(userProfile.premiumExpiry)
         : (userProfile.premiumExpiry.toDate ? userProfile.premiumExpiry.toDate() : new Date(userProfile.premiumExpiry));
-      
+
       return expiryDate > new Date();
     } catch (e) {
       console.error("[Auth] Premium check error:", e);
@@ -345,14 +348,17 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
+      <Suspense fallback={null}>
+        <ReferralTracker />
+      </Suspense>
       {children}
-      
+
       {/* Streak Celebration Toast */}
       {showStreakToast !== null && (
-        <div 
+        <div
           className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] animate-in fade-in slide-in-from-bottom-4 duration-300"
         >
-          <div 
+          <div
             className="flex items-center gap-3 px-6 py-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-[rgba(247,197,216,0.2)]"
             style={{ background: "var(--color-navy)", color: "var(--color-cream)" }}
           >
