@@ -30,9 +30,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  eslint: {
-    dirs: ['app', 'components', 'lib', 'hooks', 'services', 'types'],
-  },
   logging: {
     fetches: {
       fullUrl: true,
