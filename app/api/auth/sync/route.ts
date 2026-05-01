@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
         }, { merge: true });
         console.log(`[Sync] ✅ Firestore update successful for ${email}`);
       } catch (e: any) {
-        console.warn("[Sync] ⚠️ Firestore write failed:", e.message);
+        console.warn("[Sync] ⚠️ Firestore write failed:", e.message || e.details || JSON.stringify(e));
       }
     })());
 
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
         });
         console.log(`[Sync] 🔑 Custom claims set for ${email}`);
       } catch (e: any) {
-        console.warn("[Sync] ⚠️ Claims update failed:", e.message);
+        console.warn("[Sync] ⚠️ Claims update failed:", e.message || e.details || JSON.stringify(e));
       }
     })());
 
