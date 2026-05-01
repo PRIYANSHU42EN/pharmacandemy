@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
       (actualType === "premium" && actualAmount >= 4000);
 
     if (isPremiumPlan) {
-      let days = actualType === "premium_biannual" || actualAmount === 6000 ? 180 : 30;
+      const days = 365; // 1 year
       const expiryDate = new Date();
       expiryDate.setDate(expiryDate.getDate() + days);
 

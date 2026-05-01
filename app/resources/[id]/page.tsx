@@ -26,6 +26,10 @@ export default function ResourceViewerPage({ params }: { params: Promise<Params>
   const { resource, loading, error } = useResource(id);
   const { user, isPremium, emailVerified, loading: authLoading } = useAuth();
   const router = useRouter();
+  
+  const [secureUrl, setSecureUrl] = useState<string | null>(null);
+  const [accessLoading, setAccessLoading] = useState(true);
+  const [accessError, setAccessError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -48,17 +52,67 @@ export default function ResourceViewerPage({ params }: { params: Promise<Params>
     }
   }, [resource, loading, id]);
 
-  if (error) {
+  // Securely fetch access URL
+  useEffect(() => {
+    const fetchAccess = async () => {
+      if (loading || authLoading || !resource) return;
+      if (!user) {
+        setAccessLoading(false);
+        return; // Handled by login redirect
+      }
+
+      // If it's a practice/important type, it doesn't need a URL
+      if (resource.type !== "pdf" && resource.type !== "video" && resource.type !== "pyq") {
+        setAccessLoading(false);
+        return;
+      }
+
+      try {
+        setAccessLoading(true);
+        const token = await user.getIdToken();
+        const res = await fetch("/api/resources/verify-access", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ resourceId: id })
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok && data.authorized) {
+          setSecureUrl(data.url);
+          setAccessError(null);
+        } else {
+          setSecureUrl(null);
+          // If 403, we just let the PremiumGate handle the UI, don't show full page error
+          if (res.status !== 403) {
+            setAccessError(data.error || "Failed to authorize access");
+          }
+        }
+      } catch (err: any) {
+        console.error("Access error:", err);
+        setAccessError("Network error checking access");
+      } finally {
+        setAccessLoading(false);
+      }
+    };
+
+    fetchAccess();
+  }, [id, resource, user, loading, authLoading]);
+
+  if (error || accessError) {
     return (
       <section className="py-8 lg:py-12" style={{ background: "#F9F8F7", minHeight: "calc(100vh - 64px)" }}>
         <div className="container-main max-w-3xl pt-20">
-          <ErrorState message={error.message || "Failed to load resource"} onRetry={() => window.location.reload()} />
+          <ErrorState message={(error?.message || accessError) || "Failed to load resource"} onRetry={() => window.location.reload()} />
         </div>
       </section>
     );
   }
 
-  if (loading || authLoading || (!user && !authLoading)) {
+  if (loading || authLoading || (!user && !authLoading) || (accessLoading && (isVideo || isPdf))) {
     return (
       <section className="py-8 lg:py-12" style={{ background: "#F9F8F7", minHeight: "calc(100vh - 64px)" }}>
         <div className="container-main max-w-5xl">
@@ -154,12 +208,12 @@ export default function ResourceViewerPage({ params }: { params: Promise<Params>
               userHasPremium={isPremium}
               emailVerified={emailVerified}
             >
-            {isVideo && (
-              <VideoPlayer url={resource.url || ""} title={resource.title} />
+            {isVideo && secureUrl && (
+              <VideoPlayer url={secureUrl} title={resource.title} />
             )}
 
-            {isPdf && (
-              <PdfViewer url={resource.url || ""} title={resource.title} />
+            {isPdf && secureUrl && (
+              <PdfViewer url={secureUrl} title={resource.title} />
             )}
 
             {!isVideo && !isPdf && (

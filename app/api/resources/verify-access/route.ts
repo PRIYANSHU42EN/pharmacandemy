@@ -64,11 +64,41 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // If resource is not premium, grant access immediately
+    // Helper to generate signed URL if needed
+    const getSecureUrl = async (url: string) => {
+      if (!url.includes("supabase.co/storage/v1/object/")) return url;
+      
+      const { supabaseAdmin } = await import("@/lib/supabase/admin");
+      if (!supabaseAdmin) return url;
+
+      try {
+        const urlParts = url.split("/storage/v1/object/");
+        if (urlParts.length < 2) return url;
+
+        const pathParts = urlParts[1].split("/");
+        pathParts.shift(); // Remove 'public' or 'authenticated' prefix
+        const bucket = pathParts.shift();
+        const path = pathParts.join("/");
+
+        if (!bucket || !path) return url;
+
+        const { data, error } = await supabaseAdmin.storage
+          .from(bucket)
+          .createSignedUrl(path, 3600); // 1 hour expiry
+
+        if (error || !data) return url;
+        return data.signedUrl;
+      } catch (err) {
+        console.error("[API] Failed to generate signed URL:", err);
+        return url;
+      }
+    };
+
+    // If resource is not premium, grant access immediately with secure URL
     if (!resourceData.isPremium) {
       return NextResponse.json({
         authorized: true,
-        url: resourceData.url,
+        url: await getSecureUrl(resourceData.url),
         type: resourceData.type,
         title: resourceData.title,
       });
@@ -90,7 +120,7 @@ export async function POST(req: NextRequest) {
     if (isAdmin) {
       return NextResponse.json({
         authorized: true,
-        url: resourceData.url,
+        url: await getSecureUrl(resourceData.url),
         type: resourceData.type,
         title: resourceData.title,
       });
@@ -118,7 +148,7 @@ export async function POST(req: NextRequest) {
     // User is premium and subscription is active
     return NextResponse.json({
       authorized: true,
-      url: resourceData.url,
+      url: await getSecureUrl(resourceData.url),
       type: resourceData.type,
       title: resourceData.title,
     });

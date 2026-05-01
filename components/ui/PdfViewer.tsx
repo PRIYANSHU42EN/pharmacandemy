@@ -26,46 +26,11 @@ export default function PdfViewer({ url, title }: PdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<any>(null);
 
-  // Function to check if URL is Supabase Storage and get signed URL if needed
+  // We now receive the secure URL directly from the server via ResourceViewerPage
+  // so we don't need to generate signed URLs client-side anymore.
   const getWorkableUrl = useCallback(async (originalUrl: string) => {
-    // If it's already a signed URL or not a Supabase URL, return as is
-    if (!originalUrl.includes("supabase.co/storage/v1/object/")) return originalUrl;
-    
-    try {
-      console.log("[PdfViewer] Detected Supabase URL, attempting to get signed version...");
-      const idToken = await user?.getIdToken();
-      if (!idToken) return originalUrl;
-
-      // Extract path and bucket from URL
-      // Format: https://project.supabase.co/storage/v1/object/[public/authenticated]/[bucket]/[path]
-      const urlParts = originalUrl.split("/storage/v1/object/");
-      if (urlParts.length < 2) return originalUrl;
-
-      const pathParts = urlParts[1].split("/");
-      // Remove 'public' or 'authenticated' prefix
-      pathParts.shift();
-      const bucket = pathParts.shift();
-      const path = pathParts.join("/");
-
-      if (!bucket || !path) return originalUrl;
-
-      const response = await fetch("/api/resources/signed-url", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${idToken}`
-        },
-        body: JSON.stringify({ path, bucket })
-      });
-
-      if (!response.ok) throw new Error("Failed to get signed URL");
-      
-      const { signedUrl } = await response.json();
-      return signedUrl;
-    } catch (err) {
-      return originalUrl;
-    }
-  }, [user]);
+    return originalUrl;
+  }, []);
 
   // Load PDF.js from CDN
   useEffect(() => {

@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
         title: data.title,
         description: data.description,
         type: data.type,
-        url: data.url,
+        url: "", // SECURITY: URL hidden from list API
         subjectId: data.subject_id,
         courseId: data.course_id,
         isPremium: data.is_premium,
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
           title: r.title,
           description: r.description,
           type: r.type,
-          url: r.url,
+          url: "", // SECURITY: URL hidden from list API
           subjectId: r.subject_id,
           courseId: r.course_id,
           isPremium: r.is_premium,
