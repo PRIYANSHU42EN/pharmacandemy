@@ -669,6 +669,7 @@ export function useAdminUsers() {
             displayName: u.name || u.email?.split('@')[0] || "User",
             role: u.role || 'user',
             isPremium: u.is_premium,
+            premiumExpiry: u.premium_expires_at,
             createdAt: u.created_at,
             updatedAt: u.updated_at
           }));

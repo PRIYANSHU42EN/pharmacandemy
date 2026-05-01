@@ -121,13 +121,13 @@ export default function LoginPage() {
               className="text-[20px] font-medium"
               style={{ fontFamily: "var(--font-body)", color: "var(--color-navy)" }}
             >
-              Pharma
+              Cube
             </span>
             <span
               className="text-[20px] font-bold"
               style={{ fontFamily: "var(--font-display)", color: "var(--color-candy-rose)" }}
             >
-              Cademy
+              pharm
             </span>
           </div>
           <h1

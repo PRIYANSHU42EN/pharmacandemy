@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin
 Disallow: /dashboard
 
-Sitemap: https://pharmacademy.vercel.app/sitemap.xml
+Sitemap: https://cubepharm.vercel.app/sitemap.xml

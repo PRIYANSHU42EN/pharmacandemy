@@ -56,7 +56,7 @@ export default function ContactPage() {
               <div className="space-y-6">
                 <div>
                   <h3 className="text-[12px] uppercase tracking-widest font-bold mb-1" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>Support Email</h3>
-                  <p className="text-[18px] font-medium" style={{ color: "var(--color-candy-rose)", fontFamily: "var(--font-display)" }}>support@pharmacademy.in</p>
+                  <p className="text-[18px] font-medium" style={{ color: "var(--color-candy-rose)", fontFamily: "var(--font-display)" }}>support@cubepharm.in</p>
                 </div>
                 
                 <div>

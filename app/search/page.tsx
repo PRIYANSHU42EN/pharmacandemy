@@ -133,7 +133,7 @@ function SearchContent() {
         <div className="text-center py-16">
           <span className="text-[48px] block mb-4">🔍</span>
           <h2 className="text-[24px] mb-2" style={{ fontFamily: "var(--font-display)" }}>
-            Search PharmaCademy
+            Search Cubepharm
           </h2>
           <p className="text-[15px]" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
             Find subjects, PYQs, and study resources across all courses.

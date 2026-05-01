@@ -10,7 +10,7 @@ const VisionSection = dynamic(() => import("@/components/home/VisionSection"));
 const TrustBadges = dynamic(() => import("@/components/home/TrustBadges"));
 
 /* ==========================================================================
-   Landing Page — PharmaCademy (Performance Optimized)
+   Landing Page — Cubepharm (Performance Optimized)
    ========================================================================== */
 
 export default function LandingPage() {

@@ -99,7 +99,7 @@ function ConsentContent() {
 
         <div className="mb-8">
           <p className="text-[#424771] mb-6 text-[14px] leading-relaxed">
-            The application with ID <code className="bg-gray-100 px-1.5 py-0.5 rounded text-[13px] font-mono text-[#1A1F3C]">{client_id}</code> is requesting access to your PharmaCademy account.
+            The application with ID <code className="bg-gray-100 px-1.5 py-0.5 rounded text-[13px] font-mono text-[#1A1F3C]">{client_id}</code> is requesting access to your Cubepharm account.
           </p>
 
           <div className="space-y-4">
@@ -150,7 +150,7 @@ function ConsentContent() {
         {/* Footer info */}
         <div className="mt-10 pt-6 border-t border-gray-50">
           <p className="text-[11px] text-center text-[#6B70A0] leading-relaxed">
-            By allowing, you authorize this app to use your information in accordance with their privacy policy and PharmaCademy's terms. You can revoke this access anytime in your <Link href="/profile" className="text-[#1A1F3C] font-bold hover:underline">Account Settings</Link>.
+            By allowing, you authorize this app to use your information in accordance with their privacy policy and Cubepharm's terms. You can revoke this access anytime in your <Link href="/profile" className="text-[#1A1F3C] font-bold hover:underline">Account Settings</Link>.
           </p>
         </div>
       </div>

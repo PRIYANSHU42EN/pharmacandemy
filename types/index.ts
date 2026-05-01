@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PharmaCademy — TypeScript Type Definitions
+   Cubepharm — TypeScript Type Definitions
    Based on PRD §4 Feature Specs & §6 Firestore Collections Schema
    ========================================================================== */
 

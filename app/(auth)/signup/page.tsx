@@ -123,13 +123,13 @@ export default function SignupPage() {
               className="text-[20px] font-medium"
               style={{ fontFamily: "var(--font-body)", color: "var(--color-navy)" }}
             >
-              Pharma
+              Cube
             </span>
             <span
               className="text-[20px] font-bold"
               style={{ fontFamily: "var(--font-display)", color: "var(--color-candy-rose)" }}
             >
-              Cademy
+              pharm
             </span>
           </div>
           <h1 className="text-[24px] mb-1" style={{ fontFamily: "var(--font-display)" }}>

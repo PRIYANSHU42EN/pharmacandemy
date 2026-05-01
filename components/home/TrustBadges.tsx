@@ -2,7 +2,7 @@
 
 export default function TrustBadges() {
   const badges = [
-    { icon: "🔬", label: "Pharmacist Reviewed" },
+    { icon: "🔬", label: "Cubecist Reviewed" },
     { icon: "📋", label: "Structured Content" },
     { icon: "💰", label: "Affordable Premium" },
     { icon: "🔒", label: "Secure Payments" },

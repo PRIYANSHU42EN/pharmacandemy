@@ -18,10 +18,13 @@ export async function POST(req: NextRequest) {
     }
 
     const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const { uid, email } = decodedToken;
+    const { uid, email, picture, email_verified, firebase } = decodedToken;
     const { name, displayName } = await req.json();
 
     const userName = name || displayName || email?.split("@")[0] || "Student";
+    const isGoogleAuth = firebase?.sign_in_provider === 'google.com';
+    const finalEmailVerified = true; // Email verification completely disabled
+    
     console.log(`[Sync] 🔄 Sync request for: ${email} (${uid})`);
 
     // 1. Fetch existing profile from Firestore to preserve roles/premium
@@ -45,14 +48,16 @@ export async function POST(req: NextRequest) {
     const isSuperAdmin = email === "smashgaming5488@gmail.com" || email === "smasgaming5488@gmail.com" || email === "testadmin@example.com";
     const userRole = isSuperAdmin ? "admin" : (existingData?.role ?? "user");
     const isPremium = existingData?.isPremium ?? false;
+    const photoURL = picture || existingData?.photoURL || null;
 
     // 2. Update Firestore (Source of Truth for Profile) - Wrapped in try/catch
     try {
       const updatePromise = userRef.set({
         uid,
         email: email || "",
-        emailVerified: decodedToken.email_verified || false,
+        emailVerified: finalEmailVerified,
         displayName: userName,
+        photoURL,
         isPremium,
         premiumExpiry: existingData?.premiumExpiry || null,
         role: userRole,
@@ -81,7 +86,7 @@ export async function POST(req: NextRequest) {
       await adminAuth.setCustomUserClaims(uid, {
         role: userRole,
         isPremium: isPremium,
-        emailVerified: decodedToken.email_verified || false
+        emailVerified: finalEmailVerified
       });
       console.log(`[Sync] 🔑 Custom claims set for ${email}: ${userRole}`);
     } catch (e: any) {
@@ -95,8 +100,9 @@ export async function POST(req: NextRequest) {
         .upsert({
           id: uid,
           email: email || "",
-          email_verified: decodedToken.email_verified || false,
+          email_verified: finalEmailVerified,
           name: userName,
+          photo_url: photoURL,
           role: userRole,
           is_premium: isPremium,
           premium_expiry: existingData?.premiumExpiry || null,

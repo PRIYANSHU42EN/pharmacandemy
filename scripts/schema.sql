@@ -1,5 +1,5 @@
 -- =============================================================================
--- PharmaCademy — Consolidated Production Schema
+-- Cubepharm — Consolidated Production Schema
 -- Use this to initialize or update your Supabase database.
 -- =============================================================================
 

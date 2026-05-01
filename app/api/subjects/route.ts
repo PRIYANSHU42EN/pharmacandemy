@@ -62,7 +62,9 @@ export async function GET(req: NextRequest) {
         if (courseId && courseId !== "all") {
           query = query.eq("course_id", courseId);
         } else if (semesterId) {
-          query = query.eq("semester_id", semesterId);
+          // If semesterId is provided, we assume it's a semester number string/int
+          // as the subjects table uses semester_number column
+          query = query.eq("semester_number", semesterId);
         }
 
         const { data, error } = await query.order("name", { ascending: true });

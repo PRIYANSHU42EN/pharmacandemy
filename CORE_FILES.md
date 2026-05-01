@@ -1,6 +1,6 @@
-# PharmaCademy WebApp Core Files
+# Cubepharm WebApp Core Files
 
-This file contains the most important source code files for the PharmaCademy web application.
+This file contains the most important source code files for the Cubepharm web application.
 
 ## Table of Contents
 1. [package.json](#packagejson)
@@ -18,7 +18,7 @@ This file contains the most important source code files for the PharmaCademy web
 ## package.json
 ```json
 {
-  "name": "pharmacademy",
+  "name": "cubepharm",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -118,7 +118,6 @@ import { Playfair_Display, DM_Sans, JetBrains_Mono } from "next/font/google";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import AuthProvider from "@/components/providers/AuthProvider";
-import EmailVerificationBanner from "@/components/shared/EmailVerificationBanner";
 import CookieConsent from "@/components/shared/CookieConsent";
 import "./globals.css";
 
@@ -145,8 +144,8 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "PharmaCademy — All Your Pharmacy Study Resources in One Place",
-    template: "%s | PharmaCademy",
+    default: "Cubepharm — All Your Pharmacy Study Resources in One Place",
+    template: "%s | Cubepharm",
   },
   description:
     "Access PYQs, important questions, PDFs, and video lectures in a structured way to prepare faster. Built for B.Pharm, M.Pharm, and D.Pharm students.",
@@ -162,18 +161,25 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Priyanshu" }],
   openGraph: {
-    title: "PharmaCademy — Pharmacy Student Learning Platform",
-    description:
-      "Access PYQs, important questions, PDFs, and video lectures in a structured way to prepare faster.",
-    type: "website",
+    title: "Cubepharm — Pharmacy Student Learning Platform",
+    description: "Access curated PDF notes, question papers, and video lectures for pharmacy students.",
+    url: "https://cubepharm.vercel.app",
+    siteName: "Cubepharm",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Cubepharm Learning Platform",
+      },
+    ],
     locale: "en_IN",
-    siteName: "PharmaCademy",
+    type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "PharmaCademy — Pharmacy Student Learning Platform",
-    description:
-      "Access PYQs, important questions, PDFs, and video lectures in a structured way to prepare faster.",
+    title: "Cubepharm — Pharmacy Student Learning Platform",
+    description: "Access curated PDF notes, question papers, and video lectures for pharmacy students.",
   },
   robots: {
     index: true,
@@ -195,7 +201,6 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <AuthProvider>
           <Navbar />
-          <EmailVerificationBanner />
           <main className="flex-1 pt-[64px]">{children}</main>
           <Footer />
           <CookieConsent />

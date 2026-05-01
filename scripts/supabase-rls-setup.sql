@@ -1,5 +1,5 @@
 -- =============================================================================
--- PharmaCademy — Supabase RLS (Row Level Security) Policies
+-- Cubepharm — Supabase RLS (Row Level Security) Policies
 -- Run these in your Supabase SQL Editor at:
 -- https://supabase.com/dashboard/project/ibrfcnfreoputaqpzagu/sql
 -- =============================================================================

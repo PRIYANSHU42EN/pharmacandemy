@@ -16,21 +16,17 @@ interface PremiumGateProps {
 export default function PremiumGate({
   isPremium,
   userHasPremium,
-  emailVerified = true, // Default to true if not provided (for simplicity in some contexts)
   children,
 }: PremiumGateProps) {
-  // If content is not premium AND (verification not required OR user is verified), show content
-  if (!isPremium && emailVerified) {
+  // If content is not premium, show content
+  if (!isPremium) {
     return <>{children}</>;
   }
   
-  // If user has premium AND is verified, show content
-  if (userHasPremium && emailVerified) {
+  // If user has premium, show content
+  if (userHasPremium) {
     return <>{children}</>;
   }
-
-  // Determine which message to show
-  const needsVerification = !emailVerified;
 
   return (
     <div className="relative">
@@ -84,7 +80,7 @@ export default function PremiumGate({
               color: "var(--color-cream)",
             }}
           >
-            {needsVerification ? "Email Verification Required" : "You are not a premium member"}
+            You are not a premium member
           </h3>
           <p
             className="text-[13px] mb-5 leading-relaxed"
@@ -93,26 +89,15 @@ export default function PremiumGate({
               color: "var(--color-slate)",
             }}
           >
-            {needsVerification 
-              ? "Please verify your email address to access this content. Check your inbox for the verification link."
-              : "This content is locked. Upgrade to premium to unlock full access to PYQs, Exam Boosters, and premium PDFs for just ₹40/month."}
+            This content is locked. Upgrade to premium to unlock full access to PYQs, Exam Boosters, and premium PDFs for just ₹40/month.
           </p>
 
-          {needsVerification ? (
-            <button
-              onClick={() => window.location.reload()}
-              className="btn btn-accent text-[13px] px-6 py-2.5"
-            >
-              I've Verified →
-            </button>
-          ) : (
-            <Link
-              href="/upgrade"
-              className="btn btn-accent text-[13px] px-6 py-2.5"
-            >
-              Unlock Premium →
-            </Link>
-          )}
+          <Link
+            href="/upgrade"
+            className="btn btn-accent text-[13px] px-6 py-2.5"
+          >
+            Unlock Premium →
+          </Link>
 
           <p
             className="mt-3 text-[11px]"

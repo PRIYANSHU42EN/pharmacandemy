@@ -86,7 +86,7 @@ export default function UpgradePage() {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "demo-key",
         amount: orderData.amount,
         currency: orderData.currency,
-        name: "PharmaCademy",
+        name: "Cubepharm",
         description: `Premium Subscription — ${planName}`,
         image: "/favicon.ico", 
         order_id: orderData.orderId,

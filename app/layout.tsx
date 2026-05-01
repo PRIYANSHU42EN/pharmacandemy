@@ -3,12 +3,11 @@ import { Playfair_Display, DM_Sans, JetBrains_Mono } from "next/font/google";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import AuthProvider from "@/components/providers/AuthProvider";
-import EmailVerificationBanner from "@/components/shared/EmailVerificationBanner";
 import CookieConsent from "@/components/shared/CookieConsent";
 import "./globals.css";
 
 /* ==========================================================================
-   Typography (§04) — Pharma Candy Design System
+   Typography (§04) — Cube Candy Design System
    Playfair Display: Display / H1–H3 (400, 700)
    DM Sans: Body & UI (300, 400, 500)
    JetBrains Mono: Monospace — codes, SKUs (400)
@@ -41,8 +40,8 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "PharmaCademy — All Your Pharmacy Study Resources in One Place",
-    template: "%s | PharmaCademy",
+    default: "Cubepharm — All Your Pharmacy Study Resources in One Place",
+    template: "%s | Cubepharm",
   },
   description:
     "Access PYQs, important questions, PDFs, and video lectures in a structured way to prepare faster. Built for B.Pharm, M.Pharm, and D.Pharm students.",
@@ -58,16 +57,16 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Priyanshu" }],
   openGraph: {
-    title: "PharmaCademy — Pharmacy Student Learning Platform",
+    title: "Cubepharm — Pharmacy Student Learning Platform",
     description:
       "Access PYQs, important questions, PDFs, and video lectures in a structured way to prepare faster.",
     type: "website",
     locale: "en_IN",
-    siteName: "PharmaCademy",
+    siteName: "Cubepharm",
   },
   twitter: {
     card: "summary_large_image",
-    title: "PharmaCademy — Pharmacy Student Learning Platform",
+    title: "Cubepharm — Pharmacy Student Learning Platform",
     description:
       "Access PYQs, important questions, PDFs, and video lectures in a structured way to prepare faster.",
   },
@@ -95,7 +94,6 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <AuthProvider>
           <Navbar />
-          <EmailVerificationBanner />
           <main className="flex-1 pt-[64px]">{children}</main>
           <Footer />
           <CookieConsent />

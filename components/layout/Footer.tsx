@@ -16,7 +16,7 @@ const footerLinks = {
     { label: "D.Pharm Docs", href: "/courses" },
   ],
   Support: [
-    { label: "About PharmaCademy", href: "/about" },
+    { label: "About Cubepharm", href: "/about" },
     { label: "Get in Touch", href: "/contact" },
     { label: "Privacy Policy", href: "/privacy" },
     { label: "Terms of Use", href: "/terms" },
@@ -47,7 +47,7 @@ export default function Footer() {
                   color: "var(--color-cream)",
                 }}
               >
-                Pharma
+                Cube
               </span>
               <span
                 className="text-[16px] font-bold"
@@ -56,7 +56,7 @@ export default function Footer() {
                   color: "var(--color-candy-rose)",
                 }}
               >
-                Cademy
+                pharm
               </span>
             </div>
             <p
@@ -137,7 +137,7 @@ export default function Footer() {
               color: "var(--color-slate)",
             }}
           >
-            © {mounted ? new Date().getFullYear() : "2024"} PharmaCademy. All rights reserved.
+            © {mounted ? new Date().getFullYear() : "2024"} Cubepharm. All rights reserved.
           </p>
           <p
             className="text-[11px]"

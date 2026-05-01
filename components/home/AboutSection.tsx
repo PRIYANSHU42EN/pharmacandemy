@@ -8,7 +8,7 @@ export default function AboutSection() {
           className="label mb-4"
           style={{ color: "var(--color-candy-rose)" }}
         >
-          About PharmaCademy
+          About Cubepharm
         </p>
         <h2
           className="text-[28px] sm:text-[32px] mb-6"
@@ -23,7 +23,7 @@ export default function AboutSection() {
             color: "var(--color-mid)",
           }}
         >
-          PharmaCademy is a dedicated platform that organizes all your study
+          Cubepharm is a dedicated platform that organizes all your study
           materials — PYQs, PDFs, video lectures, and smart question banks —
           into a single, beautifully structured digital campus. No more wasting
           time searching across Telegram groups and scattered websites.

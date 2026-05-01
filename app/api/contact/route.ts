@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
     // Official Resend send pattern
     const { data, error } = await resend.emails.send({
-      from: 'PharmaCademy <onboarding@resend.dev>', // Replace with your verified domain in production
+      from: 'Cubepharm <onboarding@resend.dev>', // Replace with your verified domain in production
       to: ['smashgaming5488@gmail.com'], // The master admin email from user context
       replyTo: email,
       subject: `New Contact Message from ${name}`,

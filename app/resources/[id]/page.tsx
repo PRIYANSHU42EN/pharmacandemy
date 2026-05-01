@@ -24,7 +24,7 @@ export default function ResourceViewerPage({ params }: { params: Promise<Params>
   const { id } = use(params);
 
   const { resource, loading, error } = useResource(id);
-  const { user, isPremium, emailVerified, loading: authLoading } = useAuth();
+  const { user, isPremium, loading: authLoading } = useAuth();
   const router = useRouter();
   
   const [secureUrl, setSecureUrl] = useState<string | null>(null);
@@ -112,7 +112,7 @@ export default function ResourceViewerPage({ params }: { params: Promise<Params>
     );
   }
 
-  if (loading || authLoading || (!user && !authLoading) || (accessLoading && (isVideo || isPdf))) {
+  if (loading || authLoading || (!user && !authLoading) || (accessLoading && resource && (resource.type === "video" || resource.type === "pdf" || resource.type === "pyq"))) {
     return (
       <section className="py-8 lg:py-12" style={{ background: "#F9F8F7", minHeight: "calc(100vh - 64px)" }}>
         <div className="container-main max-w-5xl">
@@ -206,7 +206,6 @@ export default function ResourceViewerPage({ params }: { params: Promise<Params>
             <PremiumGate 
               isPremium={resource.isPremium} 
               userHasPremium={isPremium}
-              emailVerified={emailVerified}
             >
             {isVideo && secureUrl && (
               <VideoPlayer url={secureUrl} title={resource.title} />

@@ -21,7 +21,7 @@ export default function AboutPage() {
                 Revolutionizing Pharmacy Study in <span style={{ color: "var(--color-candy-rose)" }}>India</span>
               </h1>
               <p className="text-[17px] leading-relaxed" style={{ fontFamily: "var(--font-body)", color: "var(--color-navy)" }}>
-                PharmaCademy was born out of a simple observation: pharmacy students struggle with scattered resources, outdated notes, and expensive study materials.
+                Cubepharm was born out of a simple observation: pharmacy students struggle with scattered resources, outdated notes, and expensive study materials.
               </p>
             </div>
             <div className="w-full md:w-[300px] h-[300px] rounded-2xl overflow-hidden bg-gray-100 flex items-center justify-center relative shadow-xl">
@@ -39,7 +39,7 @@ export default function AboutPage() {
             <div className="p-6 rounded-2xl" style={{ background: "rgba(247,197,216,0.05)", border: "1px solid rgba(247,197,216,0.1)" }}>
               <h2 className="text-[20px] font-bold mb-3" style={{ fontFamily: "var(--font-display)" }}>The Creator</h2>
               <p className="text-[15px]" style={{ fontFamily: "var(--font-body)", color: "var(--color-mid)" }}>
-                PharmaCademy is created and maintained by <strong>Priyanshu</strong>, a passionate developer committed to making quality education accessible to every pharmacy student in India.
+                Cubepharm is created and maintained by <strong>Priyanshu</strong>, a passionate developer committed to making quality education accessible to every pharmacy student in India.
               </p>
             </div>
           </div>

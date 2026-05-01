@@ -39,7 +39,7 @@ export default function Navbar() {
     >
       <div className="container-main h-full flex items-center justify-between">
         {/* Logo — Design Doc §06: "Pharma" DM Sans + "Candy" Candy Rose Playfair 700 */}
-        <Link href="/" className="flex items-center gap-0 shrink-0" aria-label="PharmaCademy Home">
+        <Link href="/" className="flex items-center gap-0 shrink-0" aria-label="Cubepharm Home">
           <span
             className="text-[16px] font-medium tracking-tight logo-reset"
             style={{

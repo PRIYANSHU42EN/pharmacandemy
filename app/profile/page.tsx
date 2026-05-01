@@ -33,7 +33,7 @@ export default function ProfilePage() {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(`https://pharmacademy.in/ref/${referralCode}`);
+      await navigator.clipboard.writeText(`https://cubepharm.in/ref/${referralCode}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -45,9 +45,9 @@ export default function ProfilePage() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Join PharmaCademy",
+          title: "Join Cubepharm",
           text: "Access PYQs, PDFs, and video lectures for pharmacy students. Use my referral code!",
-          url: `https://pharmacademy.in/ref/${referralCode}`,
+          url: `https://cubepharm.in/ref/${referralCode}`,
         });
       } catch {
         // cancelled

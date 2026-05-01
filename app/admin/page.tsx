@@ -80,7 +80,7 @@ export default function AdminDashboardPage() {
             Dashboard
           </h1>
           <p className="text-[14px]" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
-            Real-time overview of PharmaCademy platform metrics
+            Real-time overview of Cubepharm platform metrics
           </p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-mint/10 text-[11px] font-bold text-mint-text animate-pulse">

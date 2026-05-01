@@ -21,7 +21,7 @@ export default function TermsPage() {
             
             <section>
               <h2 className="text-[20px] font-bold mb-3" style={{ fontFamily: "var(--font-display)" }}>1. Usage of Platform</h2>
-              <p>PharmaCademy provides educational materials for pharmacy students. By using our platform, you agree to use the content for personal, non-commercial study purposes only. Unauthorized distribution or copying of materials is strictly prohibited.</p>
+              <p>Cubepharm provides educational materials for pharmacy students. By using our platform, you agree to use the content for personal, non-commercial study purposes only. Unauthorized distribution or copying of materials is strictly prohibited.</p>
             </section>
 
             <section>
@@ -36,12 +36,12 @@ export default function TermsPage() {
 
             <section>
               <h2 className="text-[20px] font-bold mb-3" style={{ fontFamily: "var(--font-display)" }}>4. Disclaimer</h2>
-              <p>The materials on PharmaCademy are provided for educational purposes. While we strive for accuracy, students should siempre consult official textbooks and guidelines for medical information.</p>
+              <p>The materials on Cubepharm are provided for educational purposes. While we strive for accuracy, students should siempre consult official textbooks and guidelines for medical information.</p>
             </section>
 
             <section>
               <h2 className="text-[20px] font-bold mb-3" style={{ fontFamily: "var(--font-display)" }}>5. Limitation of Liability</h2>
-              <p>PharmaCademy and its creators are not liable for any academic results or consequences arising from the use of our study materials.</p>
+              <p>Cubepharm and its creators are not liable for any academic results or consequences arising from the use of our study materials.</p>
             </section>
           </div>
         </div>

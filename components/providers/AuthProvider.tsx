@@ -59,23 +59,6 @@ async function syncUserToServer(user: FirebaseUser, displayName?: string) {
   }
 }
 
-async function sendWelcomeEmail(email: string, name: string) {
-  try {
-    const response = await fetch("/api/send-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, name }),
-    });
-    const result = await response.json();
-    if (!response.ok) {
-      console.error("[Auth] Welcome email failed:", result.error);
-    } else {
-      console.log("[Auth] ✅ Welcome email sent to:", email);
-    }
-  } catch (err) {
-    console.error("[Auth] Welcome email exception:", err);
-  }
-}
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -222,7 +205,6 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(result.user, { displayName });
-      await sendWelcomeEmail(email, displayName);
     } catch (error: any) {
       throw new Error(getFriendlyAuthError(error));
     } finally {
@@ -281,8 +263,8 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }, [userProfile]);
 
   const emailVerified = useMemo(() => {
-    return user?.emailVerified || false;
-  }, [user]);
+    return true; // Verification completely removed
+  }, []);
 
   const value = useMemo(
     () => ({

@@ -67,8 +67,8 @@ export default function DonatePage() {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "demo-key",
         amount: orderData.amount,
         currency: orderData.currency,
-        name: "PharmaCademy",
-        description: "Support PharmaCademy Development",
+        name: "Cubepharm",
+        description: "Support Cubepharm Development",
         image: "/favicon.ico",
         order_id: orderData.orderId,
         theme: { color: "#FB6F92" },
@@ -137,7 +137,7 @@ export default function DonatePage() {
             Thank You!
           </h1>
           <p className="text-[16px] leading-relaxed" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
-            Your support means a lot. Every donation helps us keep PharmaCademy accessible and affordable for pharmacy students across India.
+            Your support means a lot. Every donation helps us keep Cubepharm accessible and affordable for pharmacy students across India.
           </p>
           <p className="text-[13px] mt-4" style={{ color: "var(--color-slate)", fontFamily: "var(--font-body)" }}>
             — Priyanshu, Creator
@@ -153,10 +153,10 @@ export default function DonatePage() {
         <div className="text-center mb-10">
           <span className="text-[48px] block mb-4">☕</span>
           <h1 className="text-[28px] sm:text-[32px] mb-3" style={{ fontFamily: "var(--font-display)" }}>
-            Support PharmaCademy
+            Support Cubepharm
           </h1>
           <p className="text-[15px] leading-relaxed" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
-            PharmaCademy is built by a solo developer to help pharmacy students study better. Your donations help keep the platform running and growing.
+            Cubepharm is built by a solo developer to help pharmacy students study better. Your donations help keep the platform running and growing.
           </p>
           <p className="text-[12px] mt-3 px-3 py-1.5 rounded-full inline-block" style={{ background: "rgba(247,197,216,0.1)", color: "var(--color-badge-rose-text)", fontFamily: "var(--font-body)" }}>
             💡 Donations do NOT grant premium access
