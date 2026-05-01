@@ -13,7 +13,10 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { TAG_TO_BADGE, TAG_LABELS, RESOURCE_TYPE_LABELS } from "@/types";
 import dynamic from "next/dynamic";
 
-const PdfViewer = dynamic(() => import("@/components/ui/PdfViewer"), { ssr: false, loading: () => <SkeletonPulse className="w-full rounded-2xl shadow-sm" style={{ height: "90vh", minHeight: "600px" }} /> });
+const ProViewer = dynamic(() => import("@/components/pdf/ProViewer"), { 
+  ssr: false, 
+  loading: () => <SkeletonPulse className="w-full rounded-2xl shadow-sm" style={{ height: "90vh", minHeight: "600px" }} /> 
+});
 const VideoPlayer = dynamic(() => import("@/components/ui/VideoPlayer"), { ssr: false, loading: () => <SkeletonPulse className="w-full rounded-2xl shadow-sm" style={{ paddingBottom: "56.25%" }} /> });
 
 interface Params {
@@ -30,6 +33,11 @@ export default function ResourceViewerPage({ params }: { params: Promise<Params>
   const [secureUrl, setSecureUrl] = useState<string | null>(null);
   const [accessLoading, setAccessLoading] = useState(true);
   const [accessError, setAccessError] = useState<string | null>(null);
+
+  // Derived state
+  const isVideo = resource?.type === "video";
+  const isPdf = resource?.type === "pdf" || resource?.type === "pyq";
+  const typeName = resource ? RESOURCE_TYPE_LABELS[resource.type] : "";
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -82,7 +90,16 @@ export default function ResourceViewerPage({ params }: { params: Promise<Params>
         const data = await res.json();
         
         if (res.ok && data.authorized) {
-          setSecureUrl(data.url);
+          let finalUrl = data.url;
+          
+          // Use our secure proxy for all PDF content to handle CORS and auth centrally
+          if (isPdf && finalUrl) {
+            const token = await user.getIdToken();
+            setSecureUrl(`/api/pdf?path=${encodeURIComponent(finalUrl)}&token=${token}`);
+          } else {
+            setSecureUrl(finalUrl);
+          }
+          
           setAccessError(null);
         } else {
           setSecureUrl(null);
@@ -142,10 +159,6 @@ export default function ResourceViewerPage({ params }: { params: Promise<Params>
       </section>
     );
   }
-
-  const isVideo = resource.type === "video";
-  const isPdf = resource.type === "pdf" || resource.type === "pyq";
-  const typeName = RESOURCE_TYPE_LABELS[resource.type];
 
   return (
     <section className="py-8 lg:py-12" style={{ background: "#F9F8F7", minHeight: "calc(100vh - 64px)" }}>
@@ -212,7 +225,12 @@ export default function ResourceViewerPage({ params }: { params: Promise<Params>
             )}
 
             {isPdf && secureUrl && (
-              <PdfViewer url={secureUrl} title={resource.title} />
+              <ProViewer 
+                url={secureUrl} 
+                title={resource.title} 
+                resourceId={resource.id}
+                isPremiumResource={resource.isPremium}
+              />
             )}
 
             {!isVideo && !isPdf && (

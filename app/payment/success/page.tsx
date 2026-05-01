@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 function ConfettiPiece({ delay, left }: { delay: number; left: number }) {
   const colors = ["var(--color-candy-rose)", "var(--color-candy-lavender)", "var(--color-candy-mint)", "var(--color-candy-peach)"];
@@ -23,11 +24,14 @@ function ConfettiPiece({ delay, left }: { delay: number; left: number }) {
 export default function PaymentSuccessPage() {
   const [showConfetti, setShowConfetti] = useState(false);
 
+  const { refreshProfile } = useAuth();
+
   useEffect(() => {
     setShowConfetti(true);
+    refreshProfile(); // Ensure UI reflects premium status immediately
     const timer = setTimeout(() => setShowConfetti(false), 3000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [refreshProfile]);
 
   return (
     <section

@@ -87,7 +87,7 @@ export default function UpgradePage() {
         amount: orderData.amount,
         currency: orderData.currency,
         name: "Cubepharm",
-        description: `Premium Subscription — ${planName}`,
+        description: `Premium Access — ${planName}`,
         image: "/favicon.ico", 
         order_id: orderData.orderId,
         theme: { color: "#FB6F92" }, 

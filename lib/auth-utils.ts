@@ -5,13 +5,20 @@ import { supabaseAdmin } from "./supabase/admin";
  * Verifies the Firebase ID Token from the Authorization header.
  * Returns the decoded token if valid, otherwise null.
  */
-export async function verifyFirebaseToken(request: Request) {
-  const authHeader = request.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return null;
+export async function verifyFirebaseToken(requestOrToken: Request | string) {
+  let token: string | null = null;
+
+  if (typeof requestOrToken === "string") {
+    token = requestOrToken;
+  } else {
+    const authHeader = requestOrToken.headers.get("Authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    }
   }
 
-  const token = authHeader.split(" ")[1];
+  if (!token) return null;
+
   try {
     const decodedToken = await adminAuth.verifyIdToken(token);
     return decodedToken;

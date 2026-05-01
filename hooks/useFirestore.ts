@@ -27,8 +27,8 @@ function useMountedRef() {
 // useCourses — real-time listener for active courses (MIGRATED TO SUPABASE)
 // ---------------------------------------------------------------------------
 export function useCourses() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [courses, setCourses] = useState<Course[]>(dataCache.get('useCourses') || []);
+  const [loading, setLoading] = useState(!dataCache.has('useCourses'));
   const [error, setError] = useState<Error | null>(null);
 
   const [refreshCount, setRefreshCount] = useState(0);
@@ -45,6 +45,7 @@ export function useCourses() {
         
         if (mounted.current) {
           setCourses(data);
+          dataCache.set('useCourses', data);
           setError(null);
         }
       } catch (err: any) {
@@ -537,7 +538,7 @@ export function useAdminStats() {
             premiumUsers: data.premiumUsers || 0,
             activeToday: data.loginsToday || 0,
             totalResources: data.totalResources || 0,
-            paymentCount: 0,
+            paymentCount: data.paymentCount || 0,
           });
         }
       } catch (err) {
@@ -715,8 +716,8 @@ export function useAdminUsers() {
 // ---------------------------------------------------------------------------
 
 export function useAdminCourses() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [courses, setCourses] = useState<Course[]>(dataCache.get('admin:courses:all') || []);
+  const [loading, setLoading] = useState(!dataCache.has('admin:courses:all'));
   const [error, setError] = useState<Error | null>(null);
   const [refreshCount, setRefreshCount] = useState(0);
   const mounted = useMountedRef();
@@ -740,6 +741,7 @@ export function useAdminCourses() {
         }));
         if (isSubscribed && mounted.current) {
           setCourses(mapped);
+          dataCache.set('admin:courses:all', mapped);
           setError(null);
         }
       } catch (err: any) {
@@ -790,8 +792,9 @@ export function useAdminCourses() {
 }
 
 export function useAdminSubjects(courseId?: string) {
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `admin:subjects:${courseId || 'all'}`;
+  const [subjects, setSubjects] = useState<Subject[]>(dataCache.get(cacheKey) || []);
+  const [loading, setLoading] = useState(!dataCache.has(cacheKey));
   const [error, setError] = useState<Error | null>(null);
   const [refreshCount, setRefreshCount] = useState(0);
   const mounted = useMountedRef();
@@ -823,6 +826,7 @@ export function useAdminSubjects(courseId?: string) {
         }));
         if (isSubscribed && mounted.current) {
           setSubjects(mapped);
+          dataCache.set(cacheKey, mapped);
           setError(null);
         }
       } catch (err: any) {
@@ -873,8 +877,9 @@ export function useAdminSubjects(courseId?: string) {
 }
 
 export function useAdminResources(subjectId?: string) {
-  const [resources, setResources] = useState<Resource[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `admin:resources:${subjectId || 'all'}`;
+  const [resources, setResources] = useState<Resource[]>(dataCache.get(cacheKey) || []);
+  const [loading, setLoading] = useState(!dataCache.has(cacheKey));
   const [error, setError] = useState<Error | null>(null);
   const [refreshCount, setRefreshCount] = useState(0);
   const mounted = useMountedRef();
@@ -907,6 +912,7 @@ export function useAdminResources(subjectId?: string) {
         }));
         if (isSubscribed && mounted.current) {
           setResources(mapped);
+          dataCache.set(cacheKey, mapped);
           setError(null);
         }
       } catch (err: any) {

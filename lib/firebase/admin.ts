@@ -52,6 +52,7 @@ if (serviceAccount) {
   adminDb = {
     collection: () => ({
       doc: () => ({
+        set: async () => {},
         update: async () => {},
         get: async () => ({ exists: false, data: () => ({}) }),
       }),

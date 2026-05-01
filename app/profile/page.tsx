@@ -37,7 +37,7 @@ export default function ProfilePage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // fallback — select text approach
+      // failed
     }
   };
 
@@ -46,7 +46,7 @@ export default function ProfilePage() {
       try {
         await navigator.share({
           title: "Join Cubepharm",
-          text: "Access PYQs, PDFs, and video lectures for pharmacy students. Use my referral code!",
+          text: "Check out this study platform for pharmacy students!",
           url: `https://cubepharm.in/ref/${referralCode}`,
         });
       } catch {
@@ -135,7 +135,10 @@ export default function ProfilePage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* Streak */}
-          <StreakWidget streak={userProfile?.streak || 0} completedToday={false} />
+          <StreakWidget 
+            streak={userProfile?.streak || 0} 
+            completedToday={userProfile?.lastActiveDate === new Date().toISOString().split('T')[0]} 
+          />
 
           {/* Referral */}
           <div

@@ -2,6 +2,52 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { verifyFirebaseToken, checkAdminRole } from "@/lib/auth-utils";
 
+/**
+ * Helper to delete a file from Supabase Storage given its URL
+ */
+async function deleteStorageFile(url: string) {
+  if (!url || !supabaseAdmin) return;
+  
+  try {
+    let bucket: string | undefined;
+    let filePath: string | undefined;
+
+    if (url.includes("/storage/v1/object/")) {
+      // Handle full legacy URLs
+      const isPublic = url.includes("/public/");
+      const separator = isPublic ? "/storage/v1/object/public/" : "/storage/v1/object/authenticated/";
+      
+      const urlParts = url.split(separator);
+      if (urlParts.length === 2) {
+        const pathParts = urlParts[1].split("/");
+        bucket = pathParts.shift();
+        filePath = decodeURIComponent(pathParts.join("/"));
+      }
+    } else if (!url.startsWith("http")) {
+      // Handle relative paths (e.g. "pdfs/file.pdf" or just "file.pdf" if in pdfs bucket)
+      if (url.includes("/")) {
+        const parts = url.split("/");
+        bucket = parts.shift();
+        filePath = parts.join("/");
+      } else {
+        bucket = "pdfs";
+        filePath = url;
+      }
+    }
+    
+    if (bucket && filePath) {
+      const { error } = await supabaseAdmin.storage.from(bucket).remove([filePath]);
+      if (error) {
+        console.error(`[Admin API] ❌ Storage cleanup failed for ${filePath} in ${bucket}:`, error);
+      } else {
+        console.log(`[Admin API] 🗑️ Deleted storage file: ${filePath} from bucket ${bucket}`);
+      }
+    }
+  } catch (err: any) {
+    console.warn("[Admin API] Storage cleanup logic exception:", err.message);
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const decodedToken = await verifyFirebaseToken(req);
@@ -125,49 +171,55 @@ export async function DELETE(req: NextRequest) {
     if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
     if (table === "courses") {
-      // 1. Check for dependent subjects
-      const { count: subjectCount, error: subErr } = await supabaseAdmin
-        .from("subjects")
-        .select("*", { count: 'exact', head: true })
+      console.log(`[Admin API] 🗑️ Initializing cascading delete for course: ${id}`);
+      
+      // 1. Clean up ALL resources linked to this course (Storage + DB)
+      const { data: resources, error: resFetchErr } = await supabaseAdmin
+        .from("resources")
+        .select("id, url")
         .eq("course_id", id);
       
-      if (subErr) throw subErr;
-      if (subjectCount && subjectCount > 0) {
-        return NextResponse.json({ error: `Cannot delete course: ${subjectCount} subjects depend on it.` }, { status: 400 });
+      if (!resFetchErr && resources && resources.length > 0) {
+        console.log(`[Admin API] Found ${resources.length} resources to clean up for course ${id}`);
+        for (const res of resources) {
+          if (res.url) await deleteStorageFile(res.url);
+        }
+        await supabaseAdmin.from("resources").delete().eq("course_id", id);
       }
 
-      // 2. Check for dependent semesters
-      const { count: semCount, error: semErr } = await supabaseAdmin
-        .from("semesters")
-        .select("*", { count: 'exact', head: true })
-        .eq("course_id", id);
-      
-      if (semErr) throw semErr;
-      if (semCount && semCount > 0) {
-        return NextResponse.json({ error: `Cannot delete course: ${semCount} semesters depend on it.` }, { status: 400 });
-      }
+      // 2. Delete all subjects
+      await supabaseAdmin.from("subjects").delete().eq("course_id", id);
 
+      // 3. Delete all semesters
+      await supabaseAdmin.from("semesters").delete().eq("course_id", id);
+
+      // 4. Finally delete the course
       const { error } = await supabaseAdmin.from("courses").delete().eq("id", id);
       if (error) throw error;
-      console.log(`[Admin API] 🗑️ Deleted course: ${id}`);
+      
+      console.log(`[Admin API] ✅ Successfully deleted course and all dependencies: ${id}`);
 
     } else if (table === "subjects") {
-      // Check for dependent resources
-      const { count: resCount, error: resErr } = await supabaseAdmin
+      console.log(`[Admin API] 🗑️ Initializing cascading delete for subject: ${id}`);
+
+      // 1. Clean up resources linked to this subject
+      const { data: resources, error: resFetchErr } = await supabaseAdmin
         .from("resources")
-        .select("*", { count: 'exact', head: true })
+        .select("id, url")
         .eq("subject_id", id);
       
-      if (resErr) throw resErr;
-      if (resCount && resCount > 0) {
-        return NextResponse.json({ 
-          error: `Cannot delete subject: ${resCount} resources are still linked to it. Please delete or reassign these resources first.` 
-        }, { status: 400 });
+      if (!resFetchErr && resources && resources.length > 0) {
+        for (const res of resources) {
+          if (res.url) await deleteStorageFile(res.url);
+        }
+        await supabaseAdmin.from("resources").delete().eq("subject_id", id);
       }
 
+      // 2. Delete the subject
       const { error } = await supabaseAdmin.from("subjects").delete().eq("id", id);
       if (error) throw error;
-      console.log(`[Admin API] 🗑️ Deleted subject: ${id}`);
+
+      console.log(`[Admin API] ✅ Successfully deleted subject and dependencies: ${id}`);
 
     } else if (table === "resources") {
       // Get the resource to find the file path and subject_id for cache invalidation
@@ -182,29 +234,7 @@ export async function DELETE(req: NextRequest) {
       }
 
       if (resource?.url) {
-        try {
-          // Extract path from Supabase URL
-          const isPublic = resource.url.includes("/public/");
-          const separator = isPublic ? "/storage/v1/object/public/" : "/storage/v1/object/authenticated/";
-          
-          const urlParts = resource.url.split(separator);
-          if (urlParts.length === 2) {
-            const pathParts = urlParts[1].split("/");
-            const bucket = pathParts.shift();
-            const filePath = decodeURIComponent(pathParts.join("/")); // Decode to handle special chars
-            
-            if (bucket && filePath) {
-              const { error: storageErr } = await supabaseAdmin.storage.from(bucket).remove([filePath]);
-              if (storageErr) {
-                console.error(`[Admin API] ❌ Storage cleanup failed for ${filePath}:`, storageErr);
-              } else {
-                console.log(`[Admin API] 🗑️ Deleted storage file: ${filePath} from bucket: ${bucket}`);
-              }
-            }
-          }
-        } catch (storageErr: any) {
-          console.warn("[Admin API] Storage cleanup logic exception:", storageErr.message);
-        }
+        await deleteStorageFile(resource.url);
       }
 
       // Hard delete from DB

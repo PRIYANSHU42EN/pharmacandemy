@@ -5,6 +5,7 @@ import Link from "next/link";
 import { NAV_LINKS } from "@/constants";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/AuthProvider";
+import StreakWidget from "@/components/shared/StreakWidget";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -38,25 +39,25 @@ export default function Navbar() {
       style={{ backgroundColor: "var(--color-navy)" }}
     >
       <div className="container-main h-full flex items-center justify-between">
-        {/* Logo — Design Doc §06: "Pharma" DM Sans + "Candy" Candy Rose Playfair 700 */}
+        {/* Logo — Rebranded to Cubepharm */}
         <Link href="/" className="flex items-center gap-0 shrink-0" aria-label="Cubepharm Home">
           <span
-            className="text-[16px] font-medium tracking-tight logo-reset"
+            className="text-[20px] font-medium"
             style={{
               fontFamily: "var(--font-body)",
               color: "var(--color-cream)",
             }}
           >
-            Pharma
+            Cube
           </span>
           <span
-            className="text-[16px] font-bold logo-reset"
+            className="text-[20px] font-bold"
             style={{
               fontFamily: "var(--font-display)",
               color: "var(--color-candy-rose)",
             }}
           >
-            Cademy
+            pharm
           </span>
         </Link>
 
@@ -124,6 +125,15 @@ export default function Navbar() {
                   Admin
                 </Link>
               )}
+
+              {/* Streak Badge */}
+              <StreakWidget 
+                variant="compact" 
+                streak={userProfile?.streak || 0} 
+                completedToday={userProfile?.lastActiveDate === new Date().toISOString().split('T')[0]} 
+                className="hidden sm:inline-flex"
+              />
+
               <Link
                 href="/profile"
                 className="text-[12px] font-medium px-5 py-[7px] rounded-[20px] transition-all duration-150 hover:scale-[1.03]"
@@ -241,6 +251,14 @@ export default function Navbar() {
               >
                 {userProfile?.displayName?.split(" ")[0] || user.displayName?.split(" ")[0] || "Profile"}
               </Link>
+              {/* Mobile Streak */}
+              <div className="flex justify-center mt-2">
+                <StreakWidget 
+                  variant="compact" 
+                  streak={userProfile?.streak || 0} 
+                  completedToday={userProfile?.lastActiveDate === new Date().toISOString().split('T')[0]} 
+                />
+              </div>
             </>
           ) : null}
         </nav>

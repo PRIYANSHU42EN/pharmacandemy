@@ -18,7 +18,10 @@ export class PaymentService {
     razorpayPaymentId: string,
     razorpaySignature: string
   ): Promise<PaymentVerificationResult> {
+    console.log(`[PaymentService] Verifying payment for user: ${userId}, Order: ${razorpayOrderId}`);
+    
     if (!supabaseAdmin) {
+      console.error("[PaymentService] Supabase Admin client not initialized");
       return { success: false, message: "Database not configured" };
     }
 
@@ -26,6 +29,7 @@ export class PaymentService {
     const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
 
     if (!razorpayKeySecret || !razorpayKeyId) {
+      console.error("[PaymentService] Razorpay keys missing in environment");
       return { success: false, message: "Payment gateway not configured" };
     }
 
@@ -37,6 +41,7 @@ export class PaymentService {
         .digest("hex");
 
       if (expectedSignature !== razorpaySignature) {
+        console.warn(`[PaymentService] Signature mismatch. Expected: ${expectedSignature}, Received: ${razorpaySignature}`);
         return { success: false, message: "Invalid payment signature" };
       }
 
@@ -48,10 +53,11 @@ export class PaymentService {
         .maybeSingle();
 
       if (existingPayment) {
+        console.log(`[PaymentService] Payment ${razorpayPaymentId} already processed.`);
         return { success: true, message: "Payment already processed" };
       }
 
-      // 3. Verify with Razorpay API
+      // 3. Verify with Razorpay API (Double-check)
       const orderRes = await fetch(`https://api.razorpay.com/v1/orders/${razorpayOrderId}`, {
         headers: {
           Authorization: `Basic ${Buffer.from(`${razorpayKeyId}:${razorpayKeySecret}`).toString("base64")}`,
@@ -59,6 +65,7 @@ export class PaymentService {
       });
 
       if (!orderRes.ok) {
+        console.error(`[PaymentService] Razorpay API error: ${orderRes.statusText}`);
         return { success: false, message: "Failed to verify order with gateway" };
       }
 
@@ -67,7 +74,7 @@ export class PaymentService {
       const type = orderData.notes?.type || "subscription";
 
       // 4. Save payment record
-      await supabaseAdmin.from("payments").insert({
+      const { error: paymentError } = await supabaseAdmin.from("payments").insert({
         user_id: userId,
         razorpay_order_id: razorpayOrderId,
         razorpay_payment_id: razorpayPaymentId,
@@ -77,19 +84,27 @@ export class PaymentService {
         status: "captured",
         type: type,
         created_at: new Date().toISOString(),
+        verified_at: new Date().toISOString()
       });
 
-      // 5. Grant premium status if applicable
+      if (paymentError) {
+        console.error("[PaymentService] Failed to insert payment record:", paymentError.message);
+        // We continue anyway to activate premium, as the money was captured
+      }
+
+      // 5. Grant premium status (Step 2: current date + 1 month)
       const isPremiumEligible = 
         type.includes("premium") || 
         (type === "subscription" && amount >= 4000);
 
       if (isPremiumEligible) {
         const expiryDate = new Date();
-        expiryDate.setFullYear(expiryDate.getFullYear() + 1); // 1 year
+        expiryDate.setMonth(expiryDate.getMonth() + 1); // Exact 1 month as requested
 
-        // Update Supabase
-        await supabaseAdmin
+        console.log(`[PaymentService] Activating premium for ${userId}. Expiry: ${expiryDate.toISOString()}`);
+
+        // Update Supabase (Source of Truth)
+        const { error: userUpdateError } = await supabaseAdmin
           .from("users")
           .update({
             is_premium: true,
@@ -98,15 +113,21 @@ export class PaymentService {
           })
           .eq("id", userId);
 
-        // Sync to Firestore (Dual-write for consistency)
+        if (userUpdateError) {
+          console.error(`[PaymentService] Supabase user update FAILED for ${userId}:`, userUpdateError.message);
+          return { success: false, message: "Failed to update user profile in database" };
+        }
+
+        // Sync to Firestore (Dual-write for backward compatibility)
         try {
           await adminDb.collection("users").doc(userId).update({
             isPremium: true,
             premiumExpiry: expiryDate.toISOString(),
             updatedAt: new Date().toISOString(),
           });
+          console.log(`[PaymentService] Firestore sync successful for ${userId}`);
         } catch (fErr: any) {
-          console.warn("[PaymentService] Firestore sync failed:", fErr.message);
+          console.warn("[PaymentService] Firestore sync failed (ignoring):", fErr.message);
         }
 
         // Log analytics event
@@ -118,13 +139,13 @@ export class PaymentService {
           });
         } catch (aErr) {}
 
-        return { success: true, message: "Premium activated" };
+        return { success: true, message: "Premium activated successfully" };
       }
 
       return { success: true, message: "Payment verified" };
 
     } catch (err: any) {
-      console.error("[PaymentService] Error:", err.message);
+      console.error("[PaymentService] Unexpected Error:", err.message);
       return { success: false, message: "Internal processing error" };
     }
   }

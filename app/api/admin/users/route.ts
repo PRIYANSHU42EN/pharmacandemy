@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from('users')
-      .select('*')
+      .select('id, email, name, role, is_premium, premium_expires_at, created_at, updated_at')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 

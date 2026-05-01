@@ -39,8 +39,47 @@ export default function PdfViewer({ url, title }: PdfViewerProps) {
         setLoading(true);
         setError(null);
 
+        // Attempt to get a workable URL
+        const workableUrl = await getWorkableUrl(url);
+        
+        // Check for internal vs external
+        const isInternal = workableUrl.startsWith("/") || 
+                          workableUrl.includes(window.location.hostname) || 
+                          workableUrl.includes("supabase.co") ||
+                          workableUrl.includes("127.0.0.1") ||
+                          workableUrl.startsWith("blob:");
+        
+        const isGoogleDrive = workableUrl.includes("drive.google.com");
+        let finalUrl = workableUrl;
+
+        // STEP 1 & 3: Handle Google Drive with Proxy
+        if (isGoogleDrive) {
+          const idMatch = workableUrl.match(/\/d\/([^\/]+)/) || workableUrl.match(/[?&]id=([^&]+)/);
+          const driveId = idMatch ? idMatch[1] : null;
+          
+          if (driveId) {
+            finalUrl = `/api/pdf/${driveId}`;
+            setUseIframe(false); // We want to use PDF.js for the proxied URL
+          } else {
+            console.warn("[PdfViewer] Could not extract ID from Drive URL, falling back to iframe");
+            setUseIframe(true);
+            setCurrentUrl(workableUrl.replace("/view", "/preview"));
+            setLoading(false);
+            return;
+          }
+        } else if (!isInternal) {
+          // For other external links, use Google Docs Viewer as a proxy
+          const embedUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(workableUrl)}&embedded=true`;
+          setCurrentUrl(embedUrl);
+          setUseIframe(true);
+          setLoading(false);
+          return;
+        }
+
+        // STEP 4: Load PDF.js and set Worker Source
         if (!(window as any).pdfjsLib) {
           const script = document.createElement("script");
+          // Using a stable version from CDN
           script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
           script.async = true;
           document.head.appendChild(script);
@@ -52,44 +91,36 @@ export default function PdfViewer({ url, title }: PdfViewerProps) {
         }
 
         const pdfjsLib = (window as any).pdfjsLib;
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        // Set worker source to unpkg as requested
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 
-        // Attempt to get a workable URL (signed if needed)
-        const workableUrl = await getWorkableUrl(url);
-        
-        // Handle Google Drive links by using an iframe instead of PDF.js
-        if (workableUrl.includes("drive.google.com")) {
-          let driveId = "";
-          // Extract ID from /file/d/[ID]/ or ?id=[ID]
-          const idMatch = workableUrl.match(/\/d\/([^\/]+)/) || workableUrl.match(/[?&]id=([^&]+)/);
-          if (idMatch) driveId = idMatch[1];
-          
-          if (driveId) {
-            // Use Google Docs Viewer embed for better CSP compatibility
-            setCurrentUrl(`https://docs.google.com/viewer?url=https://drive.google.com/uc?id=${driveId}&embedded=true`);
-          } else {
-            setCurrentUrl(workableUrl.replace("/view", "/preview").split("?")[0]);
-          }
-          
-          setUseIframe(true);
-          setLoading(false);
-          return;
-        }
-
-        setCurrentUrl(workableUrl);
-        const loadingTask = pdfjsLib.getDocument(workableUrl);
+        setCurrentUrl(finalUrl);
+        const loadingTask = pdfjsLib.getDocument(finalUrl);
         const pdfDoc = await loadingTask.promise;
         setPdf(pdfDoc);
         setNumPages(pdfDoc.numPages);
         setLoading(false);
       } catch (err: any) {
-        setError("Failed to load PDF. Please try again or open in new tab.");
+        console.error("[PDFViewer] Error loading PDF:", err.message);
+        
+        // If it's a proxy error, it might be due to private file
+        if (err.message.includes("403") || err.message.includes("401")) {
+          setError("This PDF is restricted or private in Google Drive. Please ensure 'Anyone with the link' can view it.");
+        } else {
+          setError("Failed to render PDF. Please try downloading it instead.");
+        }
+        
+        // Last resort fallback
+        if (!useIframe) {
+          console.log("[PDFViewer] Falling back to iframe after error");
+          setUseIframe(true);
+        }
         setLoading(false);
       }
     };
 
     loadPdfJs();
-  }, [url, getWorkableUrl]);
+  }, [url, getWorkableUrl, useIframe]);
 
   const renderPage = useCallback(async (num: number, currentScale: number) => {
     if (!pdf || !canvasRef.current) return;

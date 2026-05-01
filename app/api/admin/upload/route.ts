@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const file = formData.get("file") as File;
-    const bucket = formData.get("bucket") as string || "resources";
+    const bucket = formData.get("bucket") as string || "pdfs";
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
+    // Use a cleaner file naming convention
     const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
     const { data, error } = await supabaseAdmin.storage
       .from(bucket)
@@ -39,6 +40,12 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
 
+    // For the secure 'pdfs' bucket, return the relative path instead of a public URL
+    if (bucket === "pdfs") {
+      return NextResponse.json({ url: data.path });
+    }
+
+    // For other buckets, return public URL as before
     const { data: { publicUrl } } = supabaseAdmin.storage
       .from(bucket)
       .getPublicUrl(data.path);

@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.users (
     name TEXT,
     role TEXT DEFAULT 'user',
     is_premium BOOLEAN DEFAULT false,
-    premium_expiry TIMESTAMP WITH TIME ZONE,
+    premium_expires_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

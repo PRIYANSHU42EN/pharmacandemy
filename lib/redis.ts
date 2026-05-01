@@ -26,10 +26,16 @@ export async function getCachedData<T>(
   }
 
   try {
-    const cached = await redis.get<T>(key);
+    const redisPromise = redis.get<T>(key);
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 500));
+    
+    const cached = await Promise.race([redisPromise, timeoutPromise]);
+    
     if (cached !== null) {
       console.log(`[Redis] HIT: ${key}`);
       return cached;
+    } else {
+      console.log(`[Redis] MISS/TIMEOUT: ${key}`);
     }
   } catch (err) {
     console.error(`[Redis] Get error for ${key}:`, err);

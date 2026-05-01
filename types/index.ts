@@ -98,8 +98,10 @@ export interface UserProfile {
   // Referral (PRD §4.10.2)
   referralCode: string;
   referredBy?: string; // uid of referrer
+  referralCount?: number;
   // Engagement (PRD §4.9)
   streak: number;
+  lastActiveDate: string | null;
   lastStreakDate: any | null;
   streakFreezeUsedThisMonth?: boolean;
   // Admin (PRD §4.6.1)

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import dynamic from "next/dynamic";
 import SkeletonPulse from "./Skeleton";
 
@@ -74,14 +75,12 @@ export default function VideoPlayer({ url, title }: VideoPlayerProps) {
           style={{ paddingBottom: "56.25%" }}
           aria-label="Play video"
         >
-          <img
+          <Image
             src={getYouTubeThumbnail(youtubeId)}
             alt={title}
-            className="absolute inset-0 w-full h-full object-cover"
-            loading="lazy"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
-            }}
+            fill
+            sizes="(max-width: 1024px) 100vw, 80vw"
+            className="object-cover"
           />
           <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
             <div

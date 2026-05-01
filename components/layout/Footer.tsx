@@ -12,15 +12,14 @@ const footerLinks = {
   Categories: [
     { label: "B.Pharm Resources", href: "/courses" },
     { label: "M.Pharm Notes", href: "/courses" },
-    { label: "GPAT Prep", href: "/courses" },
     { label: "D.Pharm Docs", href: "/courses" },
   ],
-  Support: [
+  Legal: [
     { label: "About Cubepharm", href: "/about" },
-    { label: "Get in Touch", href: "/contact" },
+    { label: "Terms of Service", href: "/terms" },
     { label: "Privacy Policy", href: "/privacy" },
-    { label: "Terms of Use", href: "/terms" },
-  ],
+    { label: "Contact Support", href: "/contact" },
+  ]
 };
 
 export default function Footer() {
@@ -31,55 +30,32 @@ export default function Footer() {
 
   return (
     <footer
-      className="mt-auto"
-      style={{ backgroundColor: "var(--color-charcoal)" }}
+      className="py-12 lg:py-16 mt-auto"
+      style={{
+        backgroundColor: "var(--color-navy)",
+        borderTop: "0.5px solid rgba(253,252,251,0.05)",
+      }}
     >
-      <div className="container-main py-12">
-        {/* Top — Logo + Link Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
+      <div className="container-main">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
           {/* Brand Column */}
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center">
+          <div className="lg:col-span-2">
+            <div className="flex items-center gap-0 mb-6">
               <span
-                className="text-[16px] font-medium tracking-tight"
-                style={{
-                  fontFamily: "var(--font-body)",
-                  color: "var(--color-cream)",
-                }}
+                className="text-[24px] font-medium"
+                style={{ fontFamily: "var(--font-body)", color: "var(--color-cream)" }}
               >
                 Cube
               </span>
               <span
-                className="text-[16px] font-bold"
-                style={{
-                  fontFamily: "var(--font-display)",
-                  color: "var(--color-candy-rose)",
-                }}
+                className="text-[24px] font-bold"
+                style={{ fontFamily: "var(--font-display)", color: "var(--color-candy-rose)" }}
               >
                 pharm
               </span>
             </div>
-            <p
-              className="text-[13px] leading-relaxed max-w-[260px]"
-              style={{
-                fontFamily: "var(--font-body)",
-                color: "var(--color-slate)",
-              }}
-            >
-              Built to solve the problem of scattered study material and help
-              pharmacy students prepare efficiently.
-            </p>
-            <p
-              className="text-[11px] mt-2"
-              style={{
-                fontFamily: "var(--font-body)",
-                color: "var(--color-slate)",
-              }}
-            >
-              Created by{" "}
-              <span style={{ color: "var(--color-candy-rose)" }}>
-                Priyanshu
-              </span>
+            <p className="text-[14px] max-w-sm" style={{ color: "rgba(253,252,251,0.5)", fontFamily: "var(--font-body)" }}>
+               The ultimate learning platform for Pharmacy students in India. Access structured resources, PYQs, and premium notes anytime, anywhere.
             </p>
           </div>
 

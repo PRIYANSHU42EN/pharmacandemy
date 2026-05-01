@@ -29,21 +29,34 @@ import {
 } from "firebase/firestore";
 import type { UserProfile } from "@/types";
 import { getFriendlyAuthError } from "@/lib/firebase/errors";
+import { supabase } from "@/lib/supabase/client";
+import { useReminder } from "@/hooks/useReminder";
+import { useReferral } from "@/hooks/useReferral";
 
 // ---------------------------------------------------------------------------
 // Sync user to Databases via Server API
 // ---------------------------------------------------------------------------
 async function syncUserToServer(user: FirebaseUser, displayName?: string) {
   try {
-    const idToken = await user.getIdToken();
+    console.log(`[Auth] 🔄 Triggering server-side sync for ${user.uid}...`);
+    const idToken = await user.getIdToken(); // Don't force refresh every time
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s fetch timeout
+
     const response = await fetch("/api/auth/sync", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${idToken}`
       },
-      body: JSON.stringify({ displayName }),
+      body: JSON.stringify({ 
+        displayName,
+        referralCode: localStorage.getItem("refCode")
+      }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const err = await response.json();
@@ -51,10 +64,15 @@ async function syncUserToServer(user: FirebaseUser, displayName?: string) {
       return null;
     } else {
       const data = await response.json();
+      console.log(`[Auth] ✅ Sync successful: Premium=${data.profile.isPremium}`);
+      
+      // Cleanup referral code after successful sync
+      localStorage.removeItem("refCode");
+
       return data.profile;
     }
   } catch (e) {
-    console.warn("[Auth] ❌ Sync exception:", e);
+    console.error("[Auth] ❌ Sync exception:", e);
     return null;
   }
 }
@@ -96,6 +114,14 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const syncInProgress = useRef(false);
   const lastSyncedUid = useRef<string | null>(null);
 
+  const [showStreakToast, setShowStreakToast] = useState<number | null>(null);
+
+  // Referral System (Capture code from URL)
+  useReferral();
+
+  // Daily Reminder System
+  useReminder(user, userProfile);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
@@ -103,18 +129,30 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
-      const userRef = doc(db, "users", userId);
-      const userSnap = await getDoc(userRef);
+      // Step 4: Always fetch from database (Supabase)
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, email, name, role, is_premium, premium_expires_at, photo_url, streak, last_active_date")
+        .eq("id", userId)
+        .maybeSingle();
         
-      if (userSnap.exists() && mountedRef.current) {
-        const data = userSnap.data();
+      if (data && mountedRef.current) {
         setUserProfile({
-          ...data,
-          uid: userId,
+          uid: data.id,
+          email: data.email,
+          displayName: data.name,
+          role: data.role,
+          isPremium: !!data.is_premium,
+          premiumExpiry: data.premium_expires_at,
+          photoURL: data.photo_url,
+          streak: data.streak || 0,
+          lastActiveDate: data.last_active_date || null
         } as UserProfile);
+      } else if (error) {
+        console.warn("[Auth] Supabase profile fetch error:", error.message);
       }
     } catch (e) {
-      console.warn("[Auth] Firestore profile fetch error:", e);
+      console.warn("[Auth] profile fetch exception:", e);
     }
   }, []);
 
@@ -136,29 +174,41 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
           }
         });
 
-        // 1. Background Sync (Persist to DBs)
-        if (firebaseUser.uid !== lastSyncedUid.current || !userProfile) {
+        // 1. Background Sync (Persist to DBs) - Throttled to once per 15 mins
+        const lastSyncTime = localStorage.getItem(`lastSync_${firebaseUser.uid}`);
+        const shouldSync = !lastSyncTime || (Date.now() - parseInt(lastSyncTime) > 15 * 60 * 1000);
+
+        if (firebaseUser.uid !== lastSyncedUid.current || shouldSync) {
           if (!syncInProgress.current) {
             syncInProgress.current = true;
             
             const syncPromise = syncUserToServer(firebaseUser);
             const timeoutPromise = new Promise<null>((resolve) => 
               setTimeout(() => {
-                console.warn("[Auth] ⚠️ Sync API timeout reached (10s). Proceeding with limited session.");
+                console.warn("[Auth] ⚠️ Sync API timeout reached (10s). Proceeding with cache/db.");
                 resolve(null);
               }, 10000)
             );
 
-            Promise.race([syncPromise, timeoutPromise]).then((profileData) => {
+            Promise.race([syncPromise, timeoutPromise]).then((profileData: any) => {
               if (mountedRef.current && profileData) {
                 console.log(`[Auth] 👤 Profile resolved: Role=${profileData.role}, Premium=${profileData.isPremium}`);
                 setUserProfile(profileData as UserProfile);
                 lastSyncedUid.current = firebaseUser.uid;
-              } else if (mountedRef.current && !userProfile) {
+                localStorage.setItem(`lastSync_${firebaseUser.uid}`, Date.now().toString());
+
+                // Streak Celebration
+                if (profileData.streakUpdated) {
+                  setShowStreakToast(profileData.streak);
+                  setTimeout(() => setShowStreakToast(null), 5000);
+                }
+              } else if (mountedRef.current) {
+                // If sync failed or timed out, fallback to a direct Supabase fetch
                 fetchProfile(firebaseUser.uid);
               }
             }).catch(err => {
               console.error("[Auth] Sync error:", err);
+              fetchProfile(firebaseUser.uid);
             }).finally(() => {
               syncInProgress.current = false;
             });
@@ -175,14 +225,17 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, [fetchProfile]); // Removed userProfile dependency to prevent infinite loop
+  }, [fetchProfile]);
 
   const refreshProfile = useCallback(async () => {
-    const userId = user?.uid;
-    if (userId) {
-      await fetchProfile(userId);
+    if (user && mountedRef.current) {
+      console.log("[Auth] 🔄 Refreshing user profile from server...");
+      const profileData = await syncUserToServer(user);
+      if (profileData && mountedRef.current) {
+        setUserProfile(profileData as UserProfile);
+      }
     }
-  }, [user, fetchProfile]);
+  }, [user]);
 
   const loginWithEmail = useCallback(async (email: string, password: string) => {
     setLoading(true);
@@ -246,13 +299,19 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const isPremium = useMemo(() => {
-    if (!userProfile?.isPremium || !userProfile.premiumExpiry) {
-      return !!userProfile?.isPremium;
-    }
+    // Step 8: Validate isPremium flag and expiry
+    if (!userProfile?.isPremium) return false;
+    if (!userProfile.premiumExpiry) return true; // Lifetime or legacy
+
     try {
-      const expiryDate = userProfile.premiumExpiry.toDate ? userProfile.premiumExpiry.toDate() : new Date(userProfile.premiumExpiry);
+      // Handle both Firestore Timestamp (with toDate) and Supabase/ISO strings
+      const expiryDate = typeof userProfile.premiumExpiry === 'string' 
+        ? new Date(userProfile.premiumExpiry)
+        : (userProfile.premiumExpiry.toDate ? userProfile.premiumExpiry.toDate() : new Date(userProfile.premiumExpiry));
+      
       return expiryDate > new Date();
-    } catch {
+    } catch (e) {
+      console.error("[Auth] Premium check error:", e);
       return false;
     }
   }, [userProfile]);
@@ -284,5 +343,31 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     [user, userProfile, isPremium, isAdmin, loading, emailVerified, loginWithEmail, signupWithEmail, loginWithGoogle, logout, refreshProfile, resendVerificationEmail]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      
+      {/* Streak Celebration Toast */}
+      {showStreakToast !== null && (
+        <div 
+          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] animate-in fade-in slide-in-from-bottom-4 duration-300"
+        >
+          <div 
+            className="flex items-center gap-3 px-6 py-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-[rgba(247,197,216,0.2)]"
+            style={{ background: "var(--color-navy)", color: "var(--color-cream)" }}
+          >
+            <span className="text-[24px]">🔥</span>
+            <div>
+              <p className="text-[14px] font-bold" style={{ fontFamily: "var(--font-display)" }}>
+                Streak +1!
+              </p>
+              <p className="text-[12px] opacity-80" style={{ fontFamily: "var(--font-body)" }}>
+                You&apos;ve reached a {showStreakToast} day streak!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </AuthContext.Provider>
+  );
 }

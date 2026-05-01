@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import Badge from "@/components/ui/Badge";
 import type { Resource, BadgeVariant, ContentTag } from "@/types";
@@ -67,10 +68,12 @@ export default function ResourceCard({ resource, userHasPremium = false, emailVe
         style={{ background: resource.previewImage ? 'transparent' : (TYPE_GRADIENT[resource.type] || TYPE_GRADIENT.pyq) }}
       >
         {resource.previewImage ? (
-          <img 
+          <Image 
             src={resource.previewImage} 
             alt={resource.title} 
-            className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-90 group-hover:opacity-100"
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover group-hover:scale-110 transition-transform duration-700 opacity-90 group-hover:opacity-100"
           />
         ) : (
           <span className="text-[42px] group-hover:scale-110 transition-transform duration-500">{TYPE_EMOJI[resource.type] || "📝"}</span>
