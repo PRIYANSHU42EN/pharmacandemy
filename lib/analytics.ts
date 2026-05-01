@@ -42,14 +42,26 @@ class AnalyticsTracker {
     this.batchTimeout = null;
 
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      
+      // Get Firebase ID Token if user is logged in
+      const user = auth.currentUser;
+      if (user) {
+        try {
+          const token = await user.getIdToken();
+          headers["Authorization"] = `Bearer ${token}`;
+        } catch (tokenErr) {
+          console.warn("[Analytics] Token fetch failed, sending as guest:", tokenErr);
+        }
+      }
+
       await fetch("/api/analytics", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ events })
       });
     } catch (err) {
       console.error("[Analytics] Failed to flush events:", err);
-      // Re-queue if failed? For now, just log.
     }
   }
 }

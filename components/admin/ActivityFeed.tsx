@@ -8,6 +8,8 @@ interface Event {
   metadata?: any;
   created_at: string;
   user_id?: string;
+  userName?: string;
+  userEmail?: string;
 }
 
 interface ActivityFeedProps {
@@ -25,10 +27,13 @@ export default function ActivityFeed({ events, loading }: ActivityFeedProps) {
         <h2 className="text-[16px] font-bold" style={{ fontFamily: "var(--font-display)" }}>
           Real-time Activity
         </h2>
-        <Badge variant="mint">Live</Badge>
+        <div className="flex items-center gap-2">
+           <span className="w-2 h-2 rounded-full bg-mint animate-pulse" />
+           <Badge variant="mint">Live Feed</Badge>
+        </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto max-h-[400px]">
+      <div className="flex-1 overflow-y-auto max-h-[460px]">
          {loading ? (
            <div className="p-8 text-center opacity-50 text-[13px]">Initializing stream...</div>
          ) : events.length === 0 ? (
@@ -36,23 +41,35 @@ export default function ActivityFeed({ events, loading }: ActivityFeedProps) {
          ) : (
            <div className="divide-y divide-black/5">
               {events.map((event) => (
-                <div key={event.id} className="p-4 flex items-center gap-4 hover:bg-black/[0.02] transition-colors">
-                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-[14px]" style={{ 
-                     background: event.event_type === 'login' ? 'rgba(247,223,197,0.2)' : 
-                                 event.event_type === 'view' ? 'rgba(216,197,247,0.2)' : 
-                                 'rgba(197,247,232,0.2)' 
+                <div key={event.id} className="p-4 flex items-start gap-4 hover:bg-black/[0.02] transition-colors">
+                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[18px] shrink-0" style={{ 
+                     background: event.event_type === 'login' ? 'rgba(247,223,197,0.3)' : 
+                                 event.event_type === 'view' ? 'rgba(216,197,247,0.3)' : 
+                                 'rgba(197,247,232,0.3)' 
                    }}>
-                     {event.event_type === 'login' ? '🔑' : event.event_type === 'view' ? '👁️' : '💰'}
+                     {event.event_type === 'login' ? '🔑' : event.event_type === 'view' ? '📖' : '💎'}
                    </div>
-                   <div className="flex-1">
-                      <p className="text-[13px] font-medium">
-                         {event.event_type === 'login' ? 'User logged in' : 
-                          event.event_type === 'view' ? `Viewed: ${event.metadata?.title || 'Resource'}` : 
-                          'Payment success'}
+                   <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-0.5">
+                        <p className="text-[13px] font-bold truncate" style={{ color: "var(--color-navy)" }}>
+                           {event.userName || "Unknown User"}
+                        </p>
+                        <span className="text-[10px] opacity-40 font-medium shrink-0">
+                           {new Date(event.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-[12px] opacity-70 leading-relaxed">
+                         {event.event_type === 'login' ? 'Logged into the platform' : 
+                          event.event_type === 'view' ? (
+                            <>Opened <span className="font-semibold">{event.metadata?.title || 'a resource'}</span></>
+                          ) : 
+                          'Completed a payment'}
                       </p>
-                      <p className="text-[11px] opacity-50 font-mono">
-                         {new Date(event.created_at).toLocaleTimeString()} • {event.user_id?.substring(0, 8)}...
-                      </p>
+                      {event.userEmail && (
+                        <p className="text-[10px] opacity-40 mt-1 truncate italic">
+                          {event.userEmail}
+                        </p>
+                      )}
                    </div>
                 </div>
               ))}
@@ -62,3 +79,4 @@ export default function ActivityFeed({ events, loading }: ActivityFeedProps) {
     </div>
   );
 }
+

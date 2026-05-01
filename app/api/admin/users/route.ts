@@ -10,7 +10,12 @@ export async function GET(request: Request) {
     }
 
     const token = authHeader.split(" ")[1];
-    const decodedToken = await adminAuth.verifyIdToken(token);
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(token);
+    } catch (e: any) {
+      return NextResponse.json({ error: "Invalid token: " + e.message }, { status: 401 });
+    }
 
     if (!supabaseAdmin) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
@@ -58,7 +63,12 @@ export async function PATCH(request: Request) {
     const token = authHeader.split(" ")[1];
     
     // 1. Verify the caller's Firebase token
-    const decodedToken = await adminAuth.verifyIdToken(token);
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(token);
+    } catch (e: any) {
+      return NextResponse.json({ error: "Invalid token: " + e.message }, { status: 401 });
+    }
     
     // 2. Check if the requester is actually an admin in Supabase
     if (!supabaseAdmin) {

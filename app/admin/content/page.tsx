@@ -161,7 +161,7 @@ export default function AdminContentPage() {
       const idToken = await auth.currentUser?.getIdToken();
       const formData = new FormData();
       formData.append("file", selectedFile);
-      formData.append("bucket", "resources");
+      formData.append("bucket", "pdfs"); // Use secure PDF bucket
 
       const response = await fetch("/api/admin/upload", {
         method: "POST",
@@ -172,6 +172,8 @@ export default function AdminContentPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Upload failed");
 
+      // For PDFs, 'data.url' is the storage path (e.g. 123-file.pdf)
+      // For images, it's the full public URL.
       setUrl(data.url);
       setSuccessMsg("✅ File uploaded successfully!");
       setTimeout(() => setSuccessMsg(""), 4000);

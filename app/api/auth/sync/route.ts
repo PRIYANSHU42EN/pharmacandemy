@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
           .eq("id", uid)
           .maybeSingle();
         
-        const supabaseTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
+        const supabaseTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
         const { data, error } = await Promise.race([supabasePromise, supabaseTimeout]) as any;
         
         if (data) {
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     if (!supabaseData) {
       try {
         const fetchPromise = userRef.get();
-        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
         const userSnap = await Promise.race([fetchPromise, timeoutPromise]) as any;
         if (userSnap?.exists) {
           firestoreData = userSnap.data();
@@ -174,8 +174,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Wait for all updates with a hard cap timeout
-    const batchTimeout = new Promise((resolve) => setTimeout(resolve, 4000));
-    await Promise.race([Promise.allSettled(updatePromises), batchTimeout]);
+    const batchTimeout = new Promise((resolve, reject) => setTimeout(() => reject(new Error("Timeout")), 8000));
+    
+    try {
+      await Promise.race([Promise.allSettled(updatePromises), batchTimeout]);
+    } catch (e: any) {
+      console.warn("[Sync] ⚠️ Sync batch timed out (8s). Claims may be delayed.");
+    }
 
     // Phase 7: Role fetched AFTER sync
     return NextResponse.json({ 

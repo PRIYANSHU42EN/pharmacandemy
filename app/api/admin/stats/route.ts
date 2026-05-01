@@ -51,6 +51,27 @@ export async function GET(req: NextRequest) {
       supabaseAdmin.from("analytics_events")
         .select("user_id", { count: "exact", head: false })
         .eq("event_type", "login")
+        .gt("created_at", oneDayAgo),
+      // 8. Recent Events (Last 50)
+      supabaseAdmin.from("analytics_events")
+        .select(`
+          id,
+          event_type,
+          resource_id,
+          created_at,
+          metadata,
+          users:user_id (name, email)
+        `)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      // 9. Views Today
+      supabaseAdmin.from("analytics_events")
+        .select("*", { count: "exact", head: true })
+        .eq("event_type", "view")
+        .gt("created_at", oneDayAgo),
+      // 10. Active Today (Unique users in last 24h)
+      supabaseAdmin.from("analytics_events")
+        .select("user_id")
         .gt("created_at", oneDayAgo)
     ];
 
@@ -63,15 +84,23 @@ export async function GET(req: NextRequest) {
     const totalResources = results[3].count || 0;
     const paymentCount = results[4].count || 0;
     
-    // For Active Now/Logins, we need unique user_id count if possible, 
-    // but head: true doesn't support distinct easily in standard count.
-    // However, for small/medium load, we can just use the row count or a raw query.
-    // Let's refine the unique count logic:
-    const activeRaw = results[5].data || [];
-    const uniqueActive = new Set(activeRaw.map(e => e.user_id)).size;
+    // Unique counts
+    const activeNowRaw = results[5].data || [];
+    const uniqueActiveNow = new Set(activeNowRaw.map(e => e.user_id)).size;
     
     const loginsRaw = results[6].data || [];
     const uniqueLogins = new Set(loginsRaw.map(e => e.user_id)).size;
+
+    const events = (results[7].data || []).map((e: any) => ({
+      ...e,
+      userName: e.users?.name || e.users?.email?.split('@')[0] || "Guest",
+      userEmail: e.users?.email || null
+    }));
+
+    const viewsToday = results[8].count || 0;
+
+    const activeTodayRaw = results[9].data || [];
+    const uniqueActiveToday = new Set(activeTodayRaw.map(e => e.user_id)).size;
 
     return NextResponse.json({
       totalUsers,
@@ -80,7 +109,10 @@ export async function GET(req: NextRequest) {
       totalResources,
       paymentCount,
       loginsToday: uniqueLogins || 0,
-      activeNow: Math.max(uniqueActive, 1), // At least 1 (the admin viewing)
+      activeNow: Math.max(uniqueActiveNow, 1),
+      activeToday: uniqueActiveToday || 0,
+      viewsToday,
+      events
     });
   } catch (error: any) {
     console.error("[Admin Stats API] Error:", error.message);

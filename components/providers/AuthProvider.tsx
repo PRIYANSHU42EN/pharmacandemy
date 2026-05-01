@@ -13,7 +13,7 @@ import {
 } from "react";
 import { auth, db } from "@/lib/firebase/config";
 import {
-  onAuthStateChanged,
+  onIdTokenChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
@@ -33,6 +33,7 @@ import { getFriendlyAuthError } from "@/lib/firebase/errors";
 import { supabase } from "@/lib/supabase/client";
 import { useReminder } from "@/hooks/useReminder";
 import { useReferral } from "@/hooks/useReferral";
+import { analytics } from "@/lib/analytics";
 
 // ---------------------------------------------------------------------------
 // Sync user to Databases via Server API
@@ -116,9 +117,10 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const mountedRef = useRef(true);
-  const syncInProgress = useRef(false);
   const lastSyncedUid = useRef<string | null>(null);
+  const lastTokenRef = useRef<string | null>(null);
+  const syncInProgress = useRef(false);
+  const mountedRef = useRef(true);
 
   const [showStreakToast, setShowStreakToast] = useState<number | null>(null);
 
@@ -160,75 +162,100 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
       if (!mountedRef.current) return;
 
-      setUser(firebaseUser);
+      // 1. Get the current ID token string
+      const token = firebaseUser ? await firebaseUser.getIdToken() : null;
+      
+      // 2. Guard: Prevent redundant logic if token hasn't changed (Dev HMR or double events)
+      if (token === lastTokenRef.current && (!!firebaseUser === !!user)) {
+        return;
+      }
+      lastTokenRef.current = token;
 
-      if (firebaseUser) {
-        // 0. Instant Role Check via Custom Claims
-        firebaseUser.getIdTokenResult().then((result) => {
-          if (mountedRef.current && result.claims.role) {
-            setUserProfile((prev) => ({
-              ...(prev || { uid: firebaseUser.uid, email: firebaseUser.email || "" }),
-              role: result.claims.role as any,
-              isPremium: !!result.claims.isPremium
-            } as UserProfile));
-          }
-        });
-
-        // 1. Background Sync (Persist to DBs) - Throttled to once per 15 mins
-        const lastSyncTime = localStorage.getItem(`lastSync_${firebaseUser.uid}`);
-        const shouldSync = !lastSyncTime || (Date.now() - parseInt(lastSyncTime) > 15 * 60 * 1000);
-
-        if (firebaseUser.uid !== lastSyncedUid.current || shouldSync) {
-          if (!syncInProgress.current) {
-            syncInProgress.current = true;
-
-            const syncPromise = syncUserToServer(firebaseUser);
-            const timeoutPromise = new Promise<null>((resolve) =>
-              setTimeout(() => {
-                console.warn("[Auth] ⚠️ Sync API timeout reached (10s). Proceeding with cache/db.");
-                resolve(null);
-              }, 10000)
-            );
-
-            Promise.race([syncPromise, timeoutPromise]).then((profileData: any) => {
-              if (mountedRef.current && profileData) {
-                console.log(`[Auth] 👤 Profile resolved: Role=${profileData.role}, Premium=${profileData.isPremium}`);
-                setUserProfile(profileData as UserProfile);
-                lastSyncedUid.current = firebaseUser.uid;
-                localStorage.setItem(`lastSync_${firebaseUser.uid}`, Date.now().toString());
-
-                // Streak Celebration
-                if (profileData.streakUpdated) {
-                  setShowStreakToast(profileData.streak);
-                  setTimeout(() => setShowStreakToast(null), 5000);
-                }
-              } else if (mountedRef.current) {
-                // If sync failed or timed out, fallback to a direct Supabase fetch
-                fetchProfile(firebaseUser.uid);
-              }
-            }).catch(err => {
-              console.error("[Auth] Sync error:", err);
-              fetchProfile(firebaseUser.uid);
-            }).finally(() => {
-              syncInProgress.current = false;
-            });
-          }
-        }
-      } else {
+      // 3. Handle Logout
+      if (!firebaseUser) {
+        setUser(null);
         setUserProfile(null);
         lastSyncedUid.current = null;
+        if (mountedRef.current) setLoading(false);
+        return;
       }
 
-      if (mountedRef.current) {
-        setLoading(false);
+      // 4. Handle Authenticated User
+      const isNewUser = firebaseUser.uid !== lastSyncedUid.current;
+      setUser(firebaseUser);
+
+      // 5. Profile & Sync Logic
+      try {
+        const idTokenResult = await firebaseUser.getIdTokenResult();
+        const { claims } = idTokenResult;
+
+        // A. If user is same and we already have a profile, just update local state from claims (Instant)
+        // This handles periodic token refreshes and claim updates without hitting the Sync API.
+        if (!isNewUser && userProfile) {
+          const updatedProfile = {
+            ...userProfile,
+            role: (claims.role as any) || userProfile.role,
+            isPremium: claims.isPremium !== undefined ? !!claims.isPremium : userProfile.isPremium,
+          };
+          
+          // Only update state if something actually changed to prevent re-renders
+          if (JSON.stringify(updatedProfile) !== JSON.stringify(userProfile)) {
+             setUserProfile(updatedProfile);
+          }
+          if (mountedRef.current) setLoading(false);
+          return;
+        }
+
+        // B. If new user OR missing profile, we need to fetch/sync
+        if (isNewUser || !userProfile) {
+          if (syncInProgress.current) return;
+          syncInProgress.current = true;
+
+          // Check if we should sync (15 min throttle) or if we just need to fetch
+          const lastSyncTime = localStorage.getItem(`lastSync_${firebaseUser.uid}`);
+          const throttleExpired = !lastSyncTime || (Date.now() - parseInt(lastSyncTime) > 15 * 60 * 1000);
+
+          if (isNewUser || throttleExpired) {
+            console.log(`[Auth] 🔄 Syncing user to server...`);
+            const syncPromise = syncUserToServer(firebaseUser);
+            const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000));
+
+            const profileData: any = await Promise.race([syncPromise, timeoutPromise]);
+            
+            if (mountedRef.current && profileData) {
+              setUserProfile(profileData as UserProfile);
+              lastSyncedUid.current = firebaseUser.uid;
+              localStorage.setItem(`lastSync_${firebaseUser.uid}`, Date.now().toString());
+              
+              if (profileData.streakUpdated) {
+                setShowStreakToast(profileData.streak);
+                setTimeout(() => setShowStreakToast(null), 5000);
+              }
+            } else if (mountedRef.current) {
+              // Fallback to direct fetch if sync timed out or failed
+              await fetchProfile(firebaseUser.uid);
+            }
+          } else {
+            // Within throttle window, just fetch current profile from Supabase
+            await fetchProfile(firebaseUser.uid);
+            lastSyncedUid.current = firebaseUser.uid;
+          }
+        }
+      } catch (err) {
+        console.error("[Auth] Listener error:", err);
+      } finally {
+        syncInProgress.current = false;
+        if (mountedRef.current) setLoading(false);
       }
     });
 
-    return () => unsubscribe();
-  }, [fetchProfile]);
+    return () => {
+      unsubscribe();
+    };
+  }, [fetchProfile, user, userProfile]);
 
   const refreshProfile = useCallback(async () => {
     if (user && mountedRef.current) {
@@ -244,6 +271,8 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // Track login
+      analytics.track({ eventType: 'login' });
     } catch (error: any) {
       throw new Error(getFriendlyAuthError(error));
     } finally {
@@ -261,6 +290,10 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(result.user, { displayName });
+      // Explicitly sync to ensure displayName is captured
+      await syncUserToServer(result.user, displayName);
+      // Track login (which is also signup success)
+      analytics.track({ eventType: 'login' });
     } catch (error: any) {
       throw new Error(getFriendlyAuthError(error));
     } finally {
@@ -273,6 +306,8 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
+      // Track login
+      analytics.track({ eventType: 'login' });
     } catch (error: any) {
       throw new Error(getFriendlyAuthError(error));
     } finally {

@@ -358,7 +358,17 @@ export function useSubject(subjectId: string) {
         const response = await fetch(`/api/subjects?id=${subjectId}`);
         const data = await response.json();
         
-        if (!response.ok) throw new Error(data.error || 'Failed to fetch subject');
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.warn(`[API] useSubject: Subject ${subjectId} not found`);
+            if (mounted.current) {
+              setSubject(null);
+              setError(null);
+            }
+            return;
+          }
+          throw new Error(data.error || 'Failed to fetch subject');
+        }
         
         if (mounted.current) {
           setSubject(data);
@@ -536,7 +546,7 @@ export function useAdminStats() {
           setStats({
             totalUsers: data.totalUsers || 0,
             premiumUsers: data.premiumUsers || 0,
-            activeToday: data.loginsToday || 0,
+            activeToday: data.activeToday || 0,
             totalResources: data.totalResources || 0,
             paymentCount: data.paymentCount || 0,
           });
@@ -611,7 +621,12 @@ export function useRealtimeAnalytics() {
             ...prev,
             activeNow: data.activeNow || 0,
             loginsToday: data.loginsToday || 0,
+            viewsToday: data.viewsToday || 0,
+            activeToday: data.activeToday || 0,
           }));
+          if (data.events) {
+            setEvents(data.events);
+          }
         }
       } catch (err) {
         console.error("[Analytics] API error:", err);

@@ -22,21 +22,24 @@ let auth: Auth;
 let _db: Firestore | null = null;
 let storage: FirebaseStorage;
 
-// 1. Initialize App
 try {
-  app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-  console.log("[Firebase] ✅ App Initialized:", app.name);
+  if (getApps().length > 0) {
+    app = getApp();
+  } else {
+    app = initializeApp(firebaseConfig);
+    console.log("[Firebase] ✅ App Initialized:", app.name);
+  }
 } catch (e) {
   console.error("[Firebase] ❌ App Init Failed:", e);
   app = {} as any;
 }
 
-// 2. Initialize Services (Immediate)
 try {
+  // getAuth internally acts as a singleton per app instance
   auth = getAuth(app);
 } catch (e) {
   console.error("[Firebase] ❌ Auth Init Failed:", e);
-  auth = { onAuthStateChanged: () => () => {} } as any;
+  auth = { onAuthStateChanged: () => () => {}, onIdTokenChanged: () => () => {} } as any;
 }
 
 try {

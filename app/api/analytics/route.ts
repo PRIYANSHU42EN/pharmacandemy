@@ -1,10 +1,25 @@
 import { NextResponse } from "next/server";
+import { adminAuth } from "@/lib/firebase/admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
   try {
+    // 1. Optional Authentication (Strictly enforced if present)
+    const authHeader = request.headers.get("Authorization");
+    let verifiedUid: string | null = null;
+    
+    if (authHeader?.startsWith("Bearer ")) {
+      const idToken = authHeader.split("Bearer ")[1];
+      try {
+        const decodedToken = await adminAuth.verifyIdToken(idToken);
+        verifiedUid = decodedToken.uid;
+      } catch (err) {
+        return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+      }
+    }
+
     const body = await request.json();
-    const { events } = body; // Support batching
+    const { events } = body; 
 
     if (!supabaseAdmin) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
@@ -19,10 +34,14 @@ export async function POST(request: Request) {
     const { error } = await supabaseAdmin
       .from('analytics_events')
       .insert(eventsToInsert.map(event => ({
-        user_id: event.userId || event.user_id || null,
+        // Security Rule: If authenticated, use verified UID. If guest, force NULL.
+        user_id: verifiedUid, 
         event_type: event.eventType || event.event_type || event.event_name,
         resource_id: event.resourceId || event.resource_id || null,
-        metadata: event.metadata || {},
+        metadata: {
+          ...(event.metadata || {}),
+          client_reported_uid: event.userId || event.user_id || null // Keep for debugging if needed
+        },
         created_at: event.createdAt || event.created_at || new Date().toISOString()
       })));
 

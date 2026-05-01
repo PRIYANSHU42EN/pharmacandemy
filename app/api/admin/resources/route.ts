@@ -148,20 +148,32 @@ export async function DELETE(req: NextRequest) {
 
     // 2. If file -> delete from storage (Supabase)
     const url = existing.url;
-    if (url && url.includes("supabase.co/storage/v1/object/")) {
+    if (url) {
       try {
-        const urlParts = url.split("/storage/v1/object/");
-        if (urlParts.length >= 2) {
-          const pathParts = urlParts[1].split("/");
-          // Remove 'public' or 'authenticated' prefix
-          pathParts.shift();
-          const bucket = pathParts.shift();
-          const path = pathParts.join("/");
+        let bucket = "pdfs";
+        let path = url;
 
-          if (bucket && path) {
-            console.log(`[Admin API] Deleting from storage: bucket=${bucket}, path=${path}`);
-            await supabaseAdmin!.storage.from(bucket).remove([path]);
+        if (url.includes("supabase.co/storage/v1/object/")) {
+          const urlParts = url.split("/storage/v1/object/");
+          if (urlParts.length >= 2) {
+            const pathParts = urlParts[1].split("/");
+            // Remove 'public' or 'authenticated' prefix
+            pathParts.shift();
+            bucket = pathParts.shift() || "pdfs";
+            path = pathParts.join("/");
           }
+        } else if (url.startsWith("http")) {
+          // External URL (Drive, etc.), don't delete from our storage
+          bucket = ""; 
+        } else {
+          // It's a relative path (e.g. 123-file.pdf)
+          bucket = "pdfs";
+          path = url;
+        }
+
+        if (bucket && path) {
+          console.log(`[Admin API] Deleting from storage: bucket=${bucket}, path=${path}`);
+          await supabaseAdmin!.storage.from(bucket).remove([path]);
         }
       } catch (storageErr) {
         console.warn("[Admin API] Storage deletion failed (continuing):", storageErr);

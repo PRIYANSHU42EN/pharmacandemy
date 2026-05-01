@@ -16,10 +16,15 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const file = formData.get("file") as File;
-    const bucket = formData.get("bucket") as string || "pdfs";
+    let bucket = formData.get("bucket") as string;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+
+    // Auto-select bucket based on file type if not provided
+    if (!bucket) {
+      bucket = file.type === "application/pdf" ? "pdfs" : "resources";
     }
 
     if (!supabaseAdmin) {
@@ -29,8 +34,9 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Use a cleaner file naming convention
-    const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
+    // Clean filename
+    const fileName = `${Date.now()}-${file.name.replace(/[^\w.-]/g, "-")}`;
+    
     const { data, error } = await supabaseAdmin.storage
       .from(bucket)
       .upload(fileName, buffer, {
@@ -38,19 +44,22 @@ export async function POST(req: NextRequest) {
         upsert: true
       });
 
-    if (error) throw error;
-
-    // For the secure 'pdfs' bucket, return the relative path instead of a public URL
-    if (bucket === "pdfs") {
-      return NextResponse.json({ url: data.path });
+    if (error) {
+      console.error("[Upload API] Storage Error:", error);
+      throw error;
     }
 
-    // For other buckets, return public URL as before
+    // For the secure 'pdfs' bucket, we return the path which will be signed on demand
+    if (bucket === "pdfs") {
+      return NextResponse.json({ url: data.path, bucket: "pdfs" });
+    }
+
+    // For other buckets (public), return the full public URL
     const { data: { publicUrl } } = supabaseAdmin.storage
       .from(bucket)
       .getPublicUrl(data.path);
 
-    return NextResponse.json({ url: publicUrl });
+    return NextResponse.json({ url: publicUrl, bucket });
   } catch (error: any) {
     console.error("[Upload API] Error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
