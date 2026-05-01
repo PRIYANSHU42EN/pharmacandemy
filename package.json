@@ -42,5 +42,8 @@
     "postcss": "^8.5.12",
     "teeny-request": "^10.1.2",
     "node-domexception": "^2.0.2"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
