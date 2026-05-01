@@ -25,21 +25,21 @@ This file contains the most important source code files for the Cubepharm web ap
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "next lint"
   },
   "dependencies": {
-    "@colors/colors": "^1.6.0",
     "@supabase/supabase-js": "^2.104.1",
+    "@upstash/redis": "^1.37.0",
+    "axios": "^1.15.2",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "firebase": "^12.12.0",
-    "firebase-admin": "^13.8.0",
-    "firebase-tools": "^15.15.0",
-    "html2canvas": "^1.4.1",
+    "firebase": "^12.12.1",
+    "firebase-admin": "^12.0.0",
+    "lucide-react": "^0.473.0",
     "next": "16.2.4",
     "razorpay": "^2.9.6",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "react-youtube": "^10.1.0",
     "resend": "^6.12.2",
     "zod": "^4.3.6",
@@ -47,13 +47,24 @@ This file contains the most important source code files for the Cubepharm web ap
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "firebase-tools": "^15.16.0",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "glob": "^13.0.0",
+    "uuid": "^14.0.0",
+    "postcss": "^8.5.12",
+    "teeny-request": "^10.1.2",
+    "node-domexception": "^2.0.2"
+  },
+  "engines": {
+    "node": ">=24.0.0"
   }
 }
 ```
