@@ -1,0 +1,446 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   PHARMA CANDY — Design System Tokens (Tailwind v4 @theme)
+   Based on pharma_candy_design.md v1.0
+   ========================================================================== */
+
+@theme inline {
+  /* --- Colour System (§03) --- */
+  --color-navy: #1A1F3C;
+  --color-charcoal: #2D3250;
+  --color-mid: #424771;
+  --color-slate: #6B70A0;
+  --color-candy-rose: #F7C5D8;
+  --color-candy-lavender: #D8C5F7;
+  --color-candy-mint: #C5F7E8;
+  --color-candy-peach: #F7DFC5;
+  --color-candy-sky: #C5E8F7;
+  --color-cream: #FDFCFB;
+
+  /* Category badge backgrounds (20% opacity tints) */
+  --color-badge-rose-bg: rgba(247, 197, 216, 0.2);
+  --color-badge-lavender-bg: rgba(216, 197, 247, 0.2);
+  --color-badge-mint-bg: rgba(197, 247, 232, 0.2);
+  --color-badge-peach-bg: rgba(247, 223, 197, 0.2);
+  --color-badge-navy-bg: rgba(26, 31, 60, 0.1);
+
+  /* Category badge text colours */
+  --color-badge-rose-text: #A63D64;
+  --color-badge-lavender-text: #5B40A8;
+  --color-badge-mint-text: #2A7A60;
+  --color-badge-peach-text: #8A5E2A;
+
+  /* --- Typography (§04) --- */
+  --font-display: var(--font-playfair);
+  --font-body: var(--font-dm-sans);
+  --font-mono: var(--font-jetbrains);
+
+  /* --- Spacing Scale · 8px base (§05) --- */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+
+  /* --- Layout (§05) --- */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 1024px;
+  --breakpoint-lg: 1280px;
+
+  /* --- Border Radius --- */
+  --radius-badge: 20px;
+  --radius-card: 12px;
+  --radius-pill: 40px;
+  --radius-input: 8px;
+
+  /* --- Shadows --- */
+  --shadow-card-hover: 0 8px 30px rgba(247, 197, 216, 0.25);
+  --shadow-nav: 0 2px 20px rgba(26, 31, 60, 0.15);
+}
+
+/* ==========================================================================
+   Base Styles
+   ========================================================================== */
+
+:root {
+  --background: #FDFCFB;
+  --foreground: #1A1F3C;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+::selection {
+  background: var(--color-candy-rose);
+  color: var(--color-navy);
+}
+
+/* ==========================================================================
+   Typography Rules (§04)
+   ========================================================================== */
+
+h1, h2, h3 {
+  font-family: var(--font-display), Georgia, serif;
+  line-height: 1.2;
+  color: var(--color-navy);
+}
+
+h1 {
+  font-size: 48px;
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 32px;
+  font-weight: 700;
+}
+
+h3 {
+  font-size: 24px;
+  font-weight: 400;
+}
+
+/* On dark backgrounds, headings are cream */
+.dark-surface h1,
+.dark-surface h2,
+.dark-surface h3 {
+  color: var(--color-cream);
+}
+
+/* Metadata / tag style */
+.label {
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+/* Price style — always Playfair */
+.price {
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   Component Base Styles (§06)
+   ========================================================================== */
+
+/* --- Buttons --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 24px;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 40px;
+  cursor: pointer;
+  transition: transform 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+  text-decoration: none;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background: var(--color-navy);
+  color: var(--color-candy-rose);
+  border: none;
+}
+
+.btn-primary:hover {
+  background: #141833;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-navy);
+  border: 0.5px solid #DDDDDD;
+}
+
+.btn-ghost:hover {
+  background: rgba(26, 31, 60, 0.04);
+}
+
+.btn-accent {
+  background: var(--color-candy-rose);
+  color: var(--color-navy);
+  border: none;
+}
+
+.btn-accent:hover {
+  background: #f0b3c8;
+}
+
+/* --- Category Badges (§06) --- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.badge-rose {
+  background: var(--color-badge-rose-bg);
+  color: var(--color-badge-rose-text);
+}
+
+.badge-lavender {
+  background: var(--color-badge-lavender-bg);
+  color: var(--color-badge-lavender-text);
+}
+
+.badge-mint {
+  background: var(--color-badge-mint-bg);
+  color: var(--color-badge-mint-text);
+}
+
+.badge-peach {
+  background: var(--color-badge-peach-bg);
+  color: var(--color-badge-peach-text);
+}
+
+.badge-navy {
+  background: var(--color-badge-navy-bg);
+  color: var(--color-navy);
+}
+
+/* --- Trust Badge (§06) --- */
+.trust-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 0.5px solid var(--color-candy-mint);
+  background: rgba(197, 247, 232, 0.15);
+  border-radius: 8px;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-badge-mint-text);
+}
+
+.trust-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* --- Card Base (§06) --- */
+.card {
+  background: var(--color-cream);
+  border: 0.5px solid #DDDDDD;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.card:hover .card-image {
+  transform: scale(1.03);
+}
+
+.card-image {
+  transition: transform 200ms ease;
+}
+
+/* ==========================================================================
+   Motion & Interaction (§07)
+   ========================================================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Staggered hero word reveal */
+  .hero-word {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: heroReveal 600ms ease-out forwards;
+  }
+
+  @keyframes heroReveal {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Fade-in-up for sections on scroll */
+  .fade-in-up {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 600ms ease-out, transform 600ms ease-out;
+  }
+
+  .fade-in-up.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Navbar scroll compression */
+  .nav-compressed {
+    height: 48px !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+}
+
+/* Respect user preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ==========================================================================
+   Layout Utilities
+   ========================================================================== */
+
+.container-main {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+/* Fix for rotated logo text */
+.logo-reset {
+  writing-mode: horizontal-tb !important;
+  transform: none !important;
+  display: inline-block !important;
+}
+
+/* Layout fix for content overlapping */
+.viewer-layout-fix {
+  display: grid !important;
+  grid-template-columns: 100% !important;
+  grid-template-rows: auto auto !important;
+  row-gap: 32px !important;
+  align-items: start !important;
+}
+
+/* Ensure headings have room for Navbar on scroll */
+h1, h2, h3 {
+  scroll-margin-top: 100px;
+}
+
+/* Dark surface context */
+.dark-surface {
+  background: var(--color-navy);
+  color: var(--color-cream);
+}
+
+/* Content grid — responsive columns */
+.content-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (min-width: 640px) {
+  .content-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .content-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Filter + Content layout */
+.content-with-filter {
+  display: flex;
+  gap: 24px;
+}
+
+.filter-panel {
+  width: 260px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+}
+
+@media (max-width: 1023px) {
+  .filter-panel {
+    display: none;
+  }
+
+  .content-with-filter {
+    flex-direction: column;
+  }
+}
+
+/* ==========================================================================
+   Keyframe Animations (Modal, etc.)
+   ========================================================================== */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Line clamp utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
