@@ -13,15 +13,25 @@ export async function POST(req: NextRequest) {
 
     const idToken = authHeader.split("Bearer ")[1];
     
-    // Health Check: Ensure Admin SDK is alive
+    // Health Check: Ensure Admin SDK and DBs are alive
     if (!adminAuth || !adminDb) {
-      console.error("[Sync] ❌ Firebase Admin SDK not initialized properly");
-      return NextResponse.json({ error: "Backend configuration error" }, { status: 500 });
+      console.error("[Sync] ❌ Firebase Admin SDK not initialized properly. Check FIREBASE_SERVICE_ACCOUNT_KEY.");
+      return NextResponse.json({ error: "Firebase configuration error" }, { status: 500 });
+    }
+
+    if (!supabaseAdmin) {
+      console.error("[Sync] ❌ Supabase Admin not initialized. Check SUPABASE_SERVICE_ROLE_KEY and NEXT_PUBLIC_SUPABASE_URL.");
+      return NextResponse.json({ error: "Supabase configuration error" }, { status: 500 });
     }
 
     const decodedToken = await adminAuth.verifyIdToken(idToken);
+    if (!decodedToken) {
+       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
     const { uid, email, picture, email_verified, firebase } = decodedToken;
-    const { name, displayName, referralCode: incomingRefCode } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { name, displayName, referralCode: incomingRefCode } = body;
 
     const userName = name || displayName || email?.split("@")[0] || "Student";
     const isGoogleAuth = firebase?.sign_in_provider === 'google.com';

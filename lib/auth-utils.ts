@@ -42,7 +42,7 @@ export async function checkAdminRole(uid: string) {
       .single();
       
     if (error || !data) return false;
-    return data.role === 'admin' || data.role === 'super-admin';
+    return data.role === 'admin' || data.role === 'super-admin' || data.role === 'content-admin';
   } catch (err) {
     console.error("[AuthUtils] Error checking admin role:", err);
     return false;
