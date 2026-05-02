@@ -55,18 +55,27 @@ export async function GET(req: NextRequest) {
 
     // 3. Handle External URLs (Legacy Google Drive, etc.) vs Supabase Paths
     if (path.startsWith("http")) {
-      console.log("[API PDF] Proxying external URL:", path);
+      console.log("[API PDF] Streaming external URL:", path);
       const response = await fetch(path);
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch external PDF: ${response.statusText}`);
+        throw new Error(`External source returned ${response.status}: ${path}`);
       }
 
-      const blob = await response.blob();
-      return new NextResponse(blob, {
+      const contentType = response.headers.get("Content-Type") || "";
+      if (contentType.includes("text/html")) {
+        return NextResponse.json({ 
+          error: "The file is too large for a direct download or requires virus scan approval. Please upload it directly to Supabase Storage for reliable access.",
+          code: "LARGE_FILE_CONFIRMATION" 
+        }, { status: 403 });
+      }
+
+      // Return stream directly
+      return new NextResponse(response.body, {
         headers: {
           "Content-Type": "application/pdf",
           "Cache-Control": "public, max-age=3600",
+          "Content-Length": response.headers.get("Content-Length") || "",
         },
       });
     }
@@ -80,16 +89,18 @@ export async function GET(req: NextRequest) {
       throw new Error(storageError?.message || "Failed to generate signed URL");
     }
 
-    // Instead of returning the signed URL JSON, let's just REDIRECT to it 
-    // or fetch it here to keep the URL private from the client if preferred.
-    // For ProViewer compatibility with the current setup, we'll fetch and return the stream.
+    // Streaming from Supabase signed URL
     const pdfResponse = await fetch(data.signedUrl);
-    const pdfBlob = await pdfResponse.blob();
     
-    return new NextResponse(pdfBlob, {
+    if (!pdfResponse.ok) {
+        throw new Error(`Supabase storage fetch failed: ${pdfResponse.statusText}`);
+    }
+
+    return new NextResponse(pdfResponse.body, {
       headers: {
         "Content-Type": "application/pdf",
         "Cache-Control": "public, max-age=300",
+        "Content-Length": pdfResponse.headers.get("Content-Length") || "",
       },
     });
 

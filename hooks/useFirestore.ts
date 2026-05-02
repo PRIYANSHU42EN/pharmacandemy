@@ -643,17 +643,34 @@ export function useRealtimeAnalytics() {
       }
     });
 
-    let timer: any = null;
     const channel = supabase.channel('realtime-analytics')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'analytics_events' }, () => {
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(fetchInitialData, 500);
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'analytics_events' }, (payload) => {
+        const newEvent = payload.new;
+        
+        // Phase 7: Update only changed values, do not refetch
+        setEvents(prev => {
+          // Format the event to match the API structure
+          const formattedEvent = {
+            ...newEvent,
+            userName: newEvent.metadata?.title ? `User on ${newEvent.metadata.title}` : "Active User",
+            userEmail: "Live Activity"
+          };
+          return [formattedEvent, ...prev].slice(0, 50);
+        });
+        
+        setMetrics(prev => {
+          const updated = { ...prev };
+          if (newEvent.event_type === 'login') updated.loginsToday++;
+          if (newEvent.event_type === 'view') updated.viewsToday++;
+          // For activeNow and activeToday, they are unique counts, so a naive increment might overcount if the user is already active.
+          // However, for immediate visual feedback without a full DB scan, we assume activity is happening.
+          return updated;
+        });
       })
       .subscribe();
 
     return () => {
       isSubscribed = false;
-      if (timer) clearTimeout(timer);
       unsubscribe();
       supabase.removeChannel(channel);
     };

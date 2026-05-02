@@ -17,7 +17,7 @@ const PageRenderer = memo(({ page, scale, pageNum, isVisible }: PageRendererProp
   const renderTaskRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!isVisible || !page || !canvasRef.current || !textLayerRef.current) return;
+    if (!isVisible || !page || !canvasRef.current) return;
 
     const render = async () => {
       try {
@@ -26,8 +26,7 @@ const PageRenderer = memo(({ page, scale, pageNum, isVisible }: PageRendererProp
         
         const viewport = page.getViewport({ scale: scale * window.devicePixelRatio });
         const canvas = canvasRef.current;
-        const textLayerDiv = textLayerRef.current;
-        if (!canvas || !textLayerDiv) return;
+        if (!canvas) return;
 
         const context = canvas.getContext("2d");
         if (!context) return;
@@ -53,24 +52,6 @@ const PageRenderer = memo(({ page, scale, pageNum, isVisible }: PageRendererProp
         const renderTask = page.render(renderContext);
         renderTaskRef.current = renderTask;
         await renderTask.promise;
-
-        // 2. Render Text Layer (for selection/highlighting)
-        const textContent = await page.getTextContent();
-        const pdfjsLib = (window as any).pdfjsLib;
-        
-        textLayerDiv.innerHTML = "";
-        textLayerDiv.style.width = `${displayViewport.width}px`;
-        textLayerDiv.style.height = `${displayViewport.height}px`;
-        
-        // CRITICAL: Set --scale-factor for PDF.js text layer accuracy
-        textLayerDiv.style.setProperty("--scale-factor", scale.toString());
-        
-        await pdfjsLib.renderTextLayer({
-          textContent,
-          container: textLayerDiv,
-          viewport: displayViewport,
-          enhanceTextSelection: true,
-        }).promise;
 
         setRendering(false);
       } catch (err: any) {
@@ -105,15 +86,15 @@ const PageRenderer = memo(({ page, scale, pageNum, isVisible }: PageRendererProp
     >
       <canvas 
         ref={canvasRef} 
-        className={`max-w-full h-auto transition-opacity duration-500 ${rendering ? 'opacity-0' : 'opacity-100'}`} 
+        className="max-w-full h-auto bg-gray-50 transition-opacity duration-300 opacity-100" 
       />
       
-      {/* Text Layer for Selection */}
-      <div 
+      {/* Text Layer Disabled for Performance & Security */}
+      {/* <div 
         ref={textLayerRef} 
         className="textLayer absolute inset-0 pointer-events-auto opacity-20 hover:opacity-100 transition-opacity"
         style={{ mixBlendMode: 'multiply' }}
-      />
+      /> */}
       
       {rendering && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50/50 backdrop-blur-[2px] animate-pulse">

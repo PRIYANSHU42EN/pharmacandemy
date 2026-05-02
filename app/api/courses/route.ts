@@ -70,7 +70,7 @@ export async function GET(req: Request) {
       }
     });
   } catch (error: any) {
-    console.error("[API Courses] Error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[API Courses] Internal Error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -1,14 +1,27 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { verifyFirebaseToken } from '@/lib/auth-utils';
+import { applyRateLimit } from '@/lib/rate-limit';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    // 1. Rate Limiting (Strict for email endpoints: 5 req/min)
+    const rateLimitResponse = await applyRateLimit(request, { maxRequests: 5, windowMs: 60000 });
+    if (rateLimitResponse) return rateLimitResponse;
+
+    // 2. Authentication
+    const decodedToken = await verifyFirebaseToken(request);
+    if (!decodedToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { email, name } = await request.json();
 
-    if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    // 3. Input Validation
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return NextResponse.json({ error: 'Valid email is required' }, { status: 400 });
     }
 
     const { data, error } = await resend.emails.send({
@@ -29,8 +42,8 @@ export async function POST(request: Request) {
     });
 
     if (error) {
-      console.error("[Resend/Welcome] Error:", error.message);
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      console.error("[Resend/Welcome] Error sending email:", error);
+      return NextResponse.json({ error: "Failed to send email. Please try again later." }, { status: 500 });
     }
 
     console.log("[Resend/Welcome] Email sent successfully:", data?.id);

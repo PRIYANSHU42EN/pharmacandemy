@@ -57,7 +57,18 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
         }
 
         const pdfjsLib = (window as any).pdfjsLib;
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDF_VERSION}/build/pdf.worker.min.js`;
+        // 1.5 Load Worker safely to avoid cross-origin Worker security errors
+        if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+          try {
+            const workerUrl = `https://unpkg.com/pdfjs-dist@${PDF_VERSION}/build/pdf.worker.min.js`;
+            const workerResponse = await fetch(workerUrl);
+            const workerBlob = await workerResponse.blob();
+            pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
+          } catch (workerErr) {
+            console.warn("[ProViewer] Failed to load worker via blob, falling back to direct URL", workerErr);
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDF_VERSION}/build/pdf.worker.min.js`;
+          }
+        }
 
         // 2. Fetch PDF as arraybuffer with Retry Logic
         let response: Response | null = null;
@@ -104,12 +115,24 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
         setPdf(pdfDoc);
         setNumPages(pdfDoc.numPages);
 
-        const pagePromises = [];
-        for (let i = 1; i <= pdfDoc.numPages; i++) {
-          pagePromises.push(pdfDoc.getPage(i));
-        }
-        const loadedPages = await Promise.all(pagePromises);
-        setPages(loadedPages);
+        // OPTIMIZATION: Don't wait for all pages to load before showing the viewer
+        // Just fetch the first page to get metadata and allow initial render
+        const firstPage = await pdfDoc.getPage(1);
+        setPages([firstPage]); 
+        
+        // Load remaining pages in background or on-demand
+        (async () => {
+          const loadedPages = [firstPage];
+          for (let i = 2; i <= pdfDoc.numPages; i++) {
+            const page = await pdfDoc.getPage(i);
+            loadedPages.push(page);
+            if (i % 5 === 0 || i === pdfDoc.numPages) {
+              setPages([...loadedPages]);
+            }
+          }
+          setPages(loadedPages);
+        })();
+
         setLoading(false);
 
         // Resume reading & Load Notes
@@ -189,27 +212,6 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
     };
   }, [resourceId, sessionTime, numPages]);
 
-  // Handle Text Selection for Highlights/Notes
-  const handleSelection = useCallback(() => {
-    const selection = window.getSelection();
-    const text = selection?.toString().trim();
-    if (text && text.length > 3) {
-      const confirmed = window.confirm(`Add note for: "${text.substring(0, 50)}..."?`);
-      if (confirmed && resourceId) {
-        const newNote = {
-          id: Date.now(),
-          text,
-          page: currentPage,
-          createdAt: new Date().toISOString()
-        };
-        const updatedNotes = [...notes, newNote];
-        setNotes(updatedNotes);
-        localStorage.setItem(`pdf_notes_${resourceId}`, JSON.stringify(updatedNotes));
-        setShowNotes(true);
-      }
-      selection?.removeAllRanges();
-    }
-  }, [currentPage, notes, resourceId]);
 
   const deleteNote = (id: number) => {
     const updatedNotes = notes.filter(n => n.id !== id);
@@ -241,7 +243,7 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
   if (error) return <ErrorState message={error} onRetry={() => window.location.reload()} />;
 
   return (
-    <div className="pdf-container flex flex-row h-[92vh] bg-[#323639] rounded-3xl overflow-hidden border border-white/5 shadow-2xl relative select-none animate-in fade-in zoom-in-95 duration-700" onMouseUp={handleSelection} onContextMenu={(e) => e.preventDefault()}>
+    <div className="pdf-container flex flex-row h-[92vh] bg-[#323639] rounded-3xl overflow-hidden border border-white/5 shadow-2xl relative animate-in fade-in zoom-in-95 duration-700" onContextMenu={(e) => e.preventDefault()}>
       <div className="flex flex-col flex-1 relative overflow-hidden bg-[#525659]">
         {/* Visual Progress Bar */}
         <div className="absolute top-0 left-0 h-[3px] bg-candy-rose z-[60] transition-all duration-300 shadow-[0_0_10px_rgba(247,197,216,0.5)]" style={{ width: `${(currentPage / numPages) * 100}%` }} />
@@ -309,7 +311,7 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
           {notes.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-10">
               <div className="w-20 h-20 bg-gray-100 rounded-3xl flex items-center justify-center mb-6 text-gray-300 rotate-12 animate-float"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg></div>
-              <p className="text-[13px] font-bold text-navy/40 leading-relaxed">Select text in the document to automatically capture study notes here.</p>
+              <p className="text-[13px] font-bold text-navy/40 leading-relaxed">Study notes and important snippets from this document will appear here.</p>
             </div>
           ) : (
             notes.map(note => (

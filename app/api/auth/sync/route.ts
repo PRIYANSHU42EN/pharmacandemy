@@ -4,6 +4,11 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { calculateStreak } from "@/lib/streak";
 import { applyReferral, generateReferralCode } from "@/lib/referral";
 
+/**
+ * POST /api/auth/sync
+ * High-performance, atomic user synchronization between Firebase and Supabase.
+ * Target Latency: < 1.5s
+ */
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get("Authorization");
@@ -13,193 +18,122 @@ export async function POST(req: NextRequest) {
 
     const idToken = authHeader.split("Bearer ")[1];
     
-    // Health Check: Ensure Admin SDK and DBs are alive
-    if (!adminAuth || !adminDb) {
-      console.error("[Sync] ❌ Firebase Admin SDK not initialized properly. Check FIREBASE_SERVICE_ACCOUNT_KEY.");
-      return NextResponse.json({ error: "Firebase configuration error" }, { status: 500 });
+    // 1. Critical Initialization Check
+    if (!adminAuth || !adminDb || !supabaseAdmin) {
+      console.error("[Sync] ❌ Critical infrastructure missing (Firebase/Supabase Admin)");
+      return NextResponse.json({ error: "Configuration error" }, { status: 500 });
     }
 
-    if (!supabaseAdmin) {
-      console.error("[Sync] ❌ Supabase Admin not initialized. Check SUPABASE_SERVICE_ROLE_KEY and NEXT_PUBLIC_SUPABASE_URL.");
-      return NextResponse.json({ error: "Supabase configuration error" }, { status: 500 });
-    }
-
+    // 2. Fast Token Verification
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     if (!decodedToken) {
        return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const { uid, email, picture, email_verified, firebase } = decodedToken;
+    const { uid, email, picture } = decodedToken;
     const body = await req.json().catch(() => ({}));
     const { name, displayName, referralCode: incomingRefCode } = body;
 
     const userName = name || displayName || email?.split("@")[0] || "Student";
-    const isGoogleAuth = firebase?.sign_in_provider === 'google.com';
-    const finalEmailVerified = true; // Email verification completely disabled
+    const photoURL = picture || null;
     
-    console.log(`[Sync] 🔄 Sync request for: ${email} (${uid})`);
+    console.log(`[Sync] 🔄 High-speed sync for: ${email} (${uid})`);
 
-    // 1. Fetch existing profile from Supabase (SOURCE OF TRUTH)
-    let supabaseData: any = null;
-    if (supabaseAdmin) {
-        const supabasePromise = supabaseAdmin
-          .from("users")
-          .select("id, email, name, role, is_premium, premium_expires_at, created_at, updated_at, streak, last_active_date, referral_code, referred_by, referral_count")
-          .eq("id", uid)
-          .maybeSingle();
-        
-        const supabaseTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
-        const { data, error } = await Promise.race([supabasePromise, supabaseTimeout]) as any;
-        
-        if (data) {
-          supabaseData = data;
-          console.log(`[Sync] 📦 Supabase profile found for ${uid}. Premium=${data.is_premium}`);
-        } else if (error) {
-          console.warn("[Sync] ⚠️ Supabase fetch error:", error.message);
-        } else {
-          console.warn("[Sync] ⚠️ Supabase fetch timed out (3s)");
-        }
-    }
-
-    // 2. Fallback to Firestore only if Supabase data is missing
-    let firestoreData: any = null;
-    const userRef = adminDb.collection("users").doc(uid);
-    if (!supabaseData) {
-      try {
-        const fetchPromise = userRef.get();
-        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
-        const userSnap = await Promise.race([fetchPromise, timeoutPromise]) as any;
-        if (userSnap?.exists) {
-          firestoreData = userSnap.data();
-          console.log(`[Sync] 📦 Firestore fallback profile found for ${uid}`);
-        }
-      } catch (e: any) {
-        console.warn("[Sync] ⚠️ Firestore fallback read failed:", e.message);
+    // 3. Parallel Read (Supabase is Source of Truth)
+    // We race Supabase against a tight timeout. Firestore is the secondary fallback.
+    const supabasePromise = supabaseAdmin
+      .from("users")
+      .select("*")
+      .eq("id", uid)
+      .maybeSingle();
+      
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
+    const result = await Promise.race([supabasePromise, timeoutPromise]) as any;
+    
+    let dbUser = result?.data || null;
+    
+    // 4. Firestore Fallback (only if Supabase is slow or missing user)
+    if (!dbUser) {
+      const firestoreSnap = await adminDb.collection("users").doc(uid).get().catch(() => null);
+      if (firestoreSnap?.exists) {
+        dbUser = firestoreSnap.data();
+        console.log(`[Sync] 📦 Firestore fallback used for ${uid}`);
       }
     }
 
-    // Combine data: Supabase > Firestore
-    const isSuperAdmin = email === "smashgaming5488@gmail.com" || email === "smasgaming5488@gmail.com" || email === "testadmin@example.com";
-    const userRole = isSuperAdmin ? "admin" : (supabaseData?.role || firestoreData?.role || "user");
-    const isPremium = supabaseData ? !!supabaseData.is_premium : (firestoreData?.isPremium ?? false);
-    const premiumExpiry = supabaseData?.premium_expires_at || firestoreData?.premiumExpiry || null;
-    const photoURL = picture || supabaseData?.photo_url || firestoreData?.photoURL || null;
+    // 5. Data Consolidation
+    const isSuperAdmin = email === "smashgaming5488@gmail.com" || email === "smasgaming5488@gmail.com";
+    const userRole = isSuperAdmin ? "admin" : (dbUser?.role || "user");
+    const isPremium = dbUser ? (dbUser.is_premium ?? dbUser.isPremium ?? false) : false;
+    const premiumExpiry = dbUser?.premium_expires_at || dbUser?.premiumExpiry || null;
     
-    // Referral Logic
-    const isNewUser = !supabaseData;
-    let referralCode = supabaseData?.referral_code || firestoreData?.referralCode;
-    if (!referralCode) {
-      referralCode = generateReferralCode();
-    }
+    let referralCode = dbUser?.referral_code || dbUser?.referralCode;
+    if (!referralCode) referralCode = generateReferralCode();
 
-    // Streak Logic (Server-side Source of Truth)
-    const currentStreak = supabaseData?.streak || firestoreData?.streak || 0;
-    const prevLastActive = supabaseData?.last_active_date || firestoreData?.lastActiveDate || null;
+    const currentStreak = dbUser?.streak || 0;
+    const prevLastActive = dbUser?.last_active_date || dbUser?.lastActiveDate || null;
     const { newStreak, lastActiveDate, shouldUpdate: isNewDay } = calculateStreak(prevLastActive, currentStreak);
 
-    // 2. Perform non-blocking updates in parallel
+    // 6. Non-Blocking Background Updates
+    // We prepare the update and fire it without awaiting the full completion if possible,
+    // or we wait with a very short timeout.
+    const profile = {
+      uid,
+      email: email || "",
+      displayName: userName,
+      role: userRole,
+      isPremium,
+      premiumExpiry,
+      streak: newStreak,
+      lastActiveDate,
+      streakUpdated: isNewDay,
+      referralCode
+    };
+
     const updatePromises = [];
 
-    // Update Firestore
-    updatePromises.push((async () => {
-      try {
-        await userRef.set({
-          uid,
-          email: email || "",
-          emailVerified: finalEmailVerified,
-          displayName: userName,
-          photoURL,
-          isPremium,
-          premiumExpiry,
-          streak: newStreak,
-          lastActiveDate,
-          referralCode,
-          referredBy: supabaseData?.referred_by || firestoreData?.referredBy || null,
-          referralCount: supabaseData?.referral_count || firestoreData?.referralCount || 0,
-          role: userRole,
-          updatedAt: new Date().toISOString(),
-          createdAt: supabaseData?.created_at || firestoreData?.createdAt || new Date().toISOString(),
-        }, { merge: true });
-        console.log(`[Sync] ✅ Firestore update successful for ${email}`);
-      } catch (e: any) {
-        console.warn("[Sync] ⚠️ Firestore write failed:", e.message || e.details || JSON.stringify(e));
-      }
-    })());
+    // Atomic Supabase Upsert
+    updatePromises.push(supabaseAdmin.from("users").upsert({
+      id: uid,
+      email: email || "",
+      name: userName,
+      role: userRole,
+      is_premium: isPremium,
+      premium_expires_at: premiumExpiry,
+      streak: newStreak,
+      last_active_date: lastActiveDate,
+      referral_code: referralCode,
+      updated_at: new Date().toISOString()
+    }));
 
-    // Update Custom Claims
-    updatePromises.push((async () => {
-      try {
-        await adminAuth.setCustomUserClaims(uid, {
-          role: userRole,
-          isPremium: isPremium,
-          emailVerified: finalEmailVerified
-        });
-        console.log(`[Sync] 🔑 Custom claims set for ${email}`);
-      } catch (e: any) {
-        console.warn("[Sync] ⚠️ Claims update failed:", e.message || e.details || JSON.stringify(e));
-      }
-    })());
+    // Firestore Sync
+    updatePromises.push(adminDb.collection("users").doc(uid).set({
+      ...profile,
+      updatedAt: new Date().toISOString()
+    }, { merge: true }));
 
-    // Update Supabase
-    if (supabaseAdmin) {
-      updatePromises.push((async () => {
-        try {
-          const { error: pgError } = await supabaseAdmin
-            .from("users")
-            .upsert({
-              id: uid,
-              email: email || "",
-              name: userName,
-              role: userRole,
-              is_premium: isPremium,
-              premium_expires_at: premiumExpiry,
-              streak: newStreak,
-              last_active_date: lastActiveDate,
-              referral_code: referralCode,
-              updated_at: new Date().toISOString()
-            });
-          if (pgError) throw pgError;
-          console.log(`[Sync] ✅ Supabase sync successful for ${uid}`);
-        } catch (e: any) {
-          console.warn("[Sync] ⚠️ Supabase sync warning:", e.message);
-        }
-      })());
-    }
-
-    // Referral Logic (Moved to parallel)
-    if (isNewUser && incomingRefCode) {
-      updatePromises.push(applyReferral(uid, incomingRefCode).catch(e => {
-        console.warn("[Sync] ⚠️ Referral application failed:", e.message);
+    // Custom Claims (Security)
+    if (dbUser?.role !== userRole || dbUser?.is_premium !== isPremium) {
+      updatePromises.push(adminAuth.setCustomUserClaims(uid, {
+        role: userRole,
+        isPremium: isPremium
       }));
     }
 
-    // Wait for all updates with a hard cap timeout
-    const batchTimeout = new Promise((resolve, reject) => setTimeout(() => reject(new Error("Timeout")), 8000));
-    
-    try {
-      await Promise.race([Promise.allSettled(updatePromises), batchTimeout]);
-    } catch (e: any) {
-      console.warn("[Sync] ⚠️ Sync batch timed out (8s). Claims may be delayed.");
+    // Handle Referral (New Users Only)
+    if (!dbUser && incomingRefCode) {
+      updatePromises.push(applyReferral(uid, incomingRefCode));
     }
 
-    // Phase 7: Role fetched AFTER sync
-    return NextResponse.json({ 
-      success: true, 
-      profile: {
-        uid,
-        email,
-        displayName: userName,
-        role: userRole,
-        isPremium: isPremium,
-        premiumExpiry: premiumExpiry,
-        streak: newStreak,
-        lastActiveDate,
-        streakUpdated: isNewDay,
-        referralCode
-      }
-    });
+    // 7. Finalize & Respond Fast
+    // We wait max 1s for background tasks to kick off or finish.
+    const finalTimeout = new Promise((resolve) => setTimeout(() => resolve("timeout"), 1000));
+    await Promise.race([Promise.allSettled(updatePromises), finalTimeout]);
+
+    return NextResponse.json({ success: true, profile });
+
   } catch (error: any) {
     console.error("[Sync] ❌ Fatal Error:", error.message);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Sync failed" }, { status: 500 });
   }
 }

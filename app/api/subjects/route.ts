@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
       }
     });
   } catch (error: any) {
-    console.error("[API Subjects] Error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[API Subjects] Internal Error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -1,22 +1,12 @@
-import { NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase/admin";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { verifyFirebaseToken } from "@/lib/auth-utils";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     // 1. Optional Authentication (Strictly enforced if present)
-    const authHeader = request.headers.get("Authorization");
-    let verifiedUid: string | null = null;
-    
-    if (authHeader?.startsWith("Bearer ")) {
-      const idToken = authHeader.split("Bearer ")[1];
-      try {
-        const decodedToken = await adminAuth.verifyIdToken(idToken);
-        verifiedUid = decodedToken.uid;
-      } catch (err) {
-        return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-      }
-    }
+    const decodedToken = await verifyFirebaseToken(request);
+    const verifiedUid = decodedToken?.uid || null;
 
     const body = await request.json();
     const { events } = body; 

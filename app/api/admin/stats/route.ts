@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
       events
     });
   } catch (error: any) {
-    console.error("[Admin Stats API] Error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[Admin Stats API] Internal Error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
