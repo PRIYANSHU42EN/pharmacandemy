@@ -16,9 +16,9 @@ export async function POST(req: NextRequest) {
   try {
     // 0. Rate Limiting
     const rateLimitResponse = await applyRateLimit(req, {
-      maxRequests: 5,
+      maxRequests: 30,
       windowMs: 60000,
-      errorMessage: "Too many sync attempts. Please wait a minute."
+      errorMessage: "Too many sync attempts. Please try again in a minute."
     });
     if (rateLimitResponse) return rateLimitResponse;
 

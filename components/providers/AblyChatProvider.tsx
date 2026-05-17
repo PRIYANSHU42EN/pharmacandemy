@@ -62,7 +62,7 @@ export default function AblyChatProvider({ children }: { children: React.ReactNo
 
               if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(`Auth API returned ${response.status}`);
+                throw new Error(errorData.error || `Auth API returned ${response.status}`);
               }
 
               const tokenData = await response.json();
@@ -132,36 +132,7 @@ export default function AblyChatProvider({ children }: { children: React.ReactNo
 
   const value = useMemo(() => ({ chatClient, loading, error }), [chatClient, loading, error]);
 
-  if (user && loading && !chatClient && !error) {
-    return (
-      <div className="flex h-[calc(100vh-64px)] items-center justify-center bg-slate-50 font-inter">
-        <div className="flex flex-col items-center gap-4 text-center p-6">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-600 border-t-transparent shadow-sm"></div>
-          <p className="text-slate-600 font-medium tracking-tight">Establishing secure connection...</p>
-        </div>
-      </div>
-    );
-  }
 
-  if (error) {
-    return (
-      <div className="flex h-[calc(100vh-64px)] flex-col items-center justify-center bg-slate-50 p-6 text-center font-inter">
-        <div className="mb-6 rounded-full bg-red-100 p-4 text-red-600">
-           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        </div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">Connection Issue</h2>
-        <p className="text-slate-500 max-w-md mb-8">
-          {error}
-        </p>
-        <button 
-          onClick={() => window.location.reload()}
-          className="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
 
   return (
     <ChatContext.Provider value={value}>
