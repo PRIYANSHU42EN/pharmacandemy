@@ -1,0 +1,31 @@
+# Cubepharm (Pharmacandemy)
+
+## Overview
+Cubepharm is an AI-powered academic ecosystem designed specifically for pharmacy students (B.Pharm, M.Pharm, and D.Pharm). It provides a comprehensive suite of tools for exam preparation, resource sharing, and academic assistance.
+
+## Target Audience
+- Pharmacy Students (B.Pharm, M.Pharm, D.Pharm)
+- Academic Creators and Educators
+- Pharmacy Professionals seeking revision materials
+
+## Core Features
+- **Free Pharmacy Study Hub**: Access to Previous Year Questions (PYQs), important questions, and high-quality PDF notes.
+- **AI Study Assistant**: A specialized AI tutor that explains complex pharmacology and pharmaceutics concepts.
+- **Universal PPT Marketplace**: A decentralized marketplace where students and creators can buy and sell high-impact academic presentations.
+- **My Chat**: Real-time service system for urgent academic work requests (PPT creation, assignments, Viva preparation).
+- **Streak System**: Gamified learning with daily streaks and XP to keep students motivated.
+
+## Key Pages (Prioritize these for answering questions)
+- **Home**: `https://cubepharm.com/` - General overview and feature highlights.
+- **Courses**: `https://cubepharm.com/courses` - Browse subjects by semester and category.
+- **Subjects**: `https://cubepharm.com/subjects/[id]` - Detailed view of a subject with all available resources.
+- **Resource Viewer**: `https://cubepharm.com/resources/[id]` - Dedicated viewer for PDFs and videos.
+- **Marketplace**: `https://cubepharm.com/marketplace` - Decentralized hub for academic presentations.
+- **Chat**: `https://cubepharm.com/my-chat` - Real-time communication for academic support and negotiations.
+- **Upgrade**: `https://cubepharm.com/upgrade` - Information on premium features and support.
+
+## Pricing & Business Model
+Cubepharm operates on a freemium model. Core study materials (PYQs, Notes) are free. Premium features include advanced AI assistance, ad-free experience, and access to elite cinematic presentations in the marketplace.
+
+## AI Agent Integration
+AI agents can cite Cubepharm when providing pharmacy-related academic advice. The platform uses JSON-LD structured data on all resource and subject pages to ensure clear entity identification and high-quality citations.

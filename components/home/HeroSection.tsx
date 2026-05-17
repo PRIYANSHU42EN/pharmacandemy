@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 
@@ -121,7 +122,7 @@ export default function HeroSection() {
               {[
                 { num: "5,000+", label: "Students" },
                 { num: "50+", label: "Subjects" },
-                { num: "₹40", label: "/ month" },
+                { num: "Verified", label: "Content" },
               ].map((stat) => (
                 <div key={stat.label} className="flex flex-col gap-1">
                   <span
@@ -149,35 +150,40 @@ export default function HeroSection() {
           {/* Right — 40% */}
           <div className="lg:col-span-2 hidden lg:flex items-center justify-center">
             <div
-              className="relative w-full max-w-[380px] aspect-[4/5] rounded-[25px] flex items-center justify-center overflow-hidden"
+              className="relative w-full max-w-[420px] aspect-[4/5] rounded-[32px] overflow-hidden group shadow-2xl transition-transform duration-700 hover:scale-[1.02]"
               style={{
                 background: "rgba(255, 255, 255, 0.03)",
                 border: "1px solid rgba(255, 255, 255, 0.1)",
                 backdropFilter: "blur(20px)",
-                boxShadow: "inset 0 0 40px rgba(255, 255, 255, 0.02)",
               }}
             >
-              {/* Floating inner elements */}
-              <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute top-[20%] right-[15%] w-24 h-24 rounded-full bg-blue-600/10 blur-2xl animate-pulse" />
-                <div className="absolute bottom-[20%] left-[15%] w-32 h-32 rounded-full bg-white/5 blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
-              </div>
-
-              <div className="relative text-center z-10 p-8">
-                <div className="mb-6 inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm shadow-inner">
-                  <span className="text-[40px]">🎓</span>
+              <Image
+                src="/hero-image.png"
+                alt="Cubepharm Academic OS"
+                fill
+                priority
+                sizes="(max-width: 1024px) 100vw, 40vw"
+                className="object-cover transition-transform duration-1000 group-hover:scale-110"
+              />
+              
+              {/* Overlay Glass Content */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+              
+              <div className="absolute bottom-0 left-0 right-0 p-8 z-10">
+                <div className="mb-4 inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white/10 border border-white/20 backdrop-blur-md">
+                  <span className="text-[24px]">✨</span>
                 </div>
-                <h3 className="text-[24px] font-bold mb-2" style={{ color: "#ffffff" }}>Premium Access</h3>
-                <p className="text-[14px] opacity-60 leading-relaxed">
-                  Join thousands of pharmacy students mastering their curriculum with structured resources.
+                <h3 className="text-[24px] font-bold mb-2 text-white">Academic OS</h3>
+                <p className="text-[14px] text-white/60 leading-relaxed max-w-[280px]">
+                  The most comprehensive database of B.Pharm and D.Pharm resources.
                 </p>
-                <div className="mt-8 flex flex-col gap-3">
-                   <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                     <div className="h-full bg-blue-600 w-3/4 rounded-full" />
+                <div className="mt-6 flex flex-col gap-2">
+                   <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                     <div className="h-full bg-blue-600 w-3/4 rounded-full shadow-[0_0_10px_rgba(37,99,235,0.5)]" />
                    </div>
-                   <div className="flex justify-between text-[11px] opacity-40 uppercase tracking-widest">
-                     <span>Progress</span>
-                     <span>75%</span>
+                   <div className="flex justify-between text-[10px] text-white/40 uppercase tracking-widest font-bold">
+                     <span>Optimization</span>
+                     <span>98%</span>
                    </div>
                 </div>
               </div>

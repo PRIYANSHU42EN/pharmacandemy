@@ -6,24 +6,25 @@ import PageRenderer from "./PageRenderer";
 import SkeletonPulse from "@/components/ui/Skeleton";
 import ErrorState from "@/components/ui/ErrorState";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { pdfCache } from "@/lib/indexedDBCache";
 
 interface ProViewerProps {
   url: string;
   title: string;
   resourceId?: string;
-  isPremiumResource?: boolean;
 }
 
-export default function ProViewer({ url, title, resourceId, isPremiumResource = false }: ProViewerProps) {
-  const { user, isPremium } = useAuth();
+export default function ProViewer({ url, title, resourceId }: ProViewerProps) {
+  const { user } = useAuth();
   const [pdf, setPdf] = useState<any>(null);
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1.0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pages, setPages] = useState<any[]>([]);
+  const [defaultViewport, setDefaultViewport] = useState<any>(null);
   const [isResuming, setIsResuming] = useState(false);
+  const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   // Learning Features State
   const [notes, setNotes] = useState<any[]>([]);
@@ -44,11 +45,11 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
 
         const PDF_VERSION = "3.11.174";
 
-        // 1. Load PDF.js Script if not present
+        // 1. Load PDF.js Script if not present (now using local optimized build)
         if (!(window as any).pdfjsLib) {
           await new Promise<void>((resolve, reject) => {
             const script = document.createElement("script");
-            script.src = `https://unpkg.com/pdfjs-dist@${PDF_VERSION}/build/pdf.js`;
+            script.src = `/lib/pdf.min.js`; // Zero-latency local load
             script.async = true;
             script.onload = () => resolve();
             script.onerror = () => reject(new Error("Failed to load PDF engine."));
@@ -57,51 +58,50 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
         }
 
         const pdfjsLib = (window as any).pdfjsLib;
-        // 1.5 Load Worker safely to avoid cross-origin Worker security errors
+        // 1.5 Set Local Worker Path
         if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-          try {
-            const workerUrl = `https://unpkg.com/pdfjs-dist@${PDF_VERSION}/build/pdf.worker.min.js`;
-            const workerResponse = await fetch(workerUrl);
-            const workerBlob = await workerResponse.blob();
-            pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
-          } catch (workerErr) {
-            console.warn("[ProViewer] Failed to load worker via blob, falling back to direct URL", workerErr);
-            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDF_VERSION}/build/pdf.worker.min.js`;
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `/lib/pdf.worker.min.js`; // Zero-latency local worker
+        }
+
+        // 2. Load PDF data (Check Cache first for zero-latency)
+        let data: ArrayBuffer | null = await pdfCache.get(url);
+        
+        if (!data) {
+          // Cache miss - Fetch as arraybuffer with Retry Logic
+          let response: Response | null = null;
+          let attempts = 0;
+          const maxAttempts = 3;
+
+          while (attempts < maxAttempts) {
+            try {
+              response = await fetch(url);
+              if (response.ok) break;
+              if (response.status === 403) throw new Error("Access denied. Please contact support.");
+              if (response.status === 404) throw new Error("PDF file not found.");
+            } catch (err: any) {
+              if (attempts === maxAttempts - 1) throw err;
+            }
+            attempts++;
+            await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempts)));
+          }
+
+          if (!response || !response.ok) {
+            throw new Error(`Connection failed (${response?.status || 'Network Error'})`);
+          }
+
+          // Validation
+          const contentType = response.headers.get("content-type") || "";
+          if (contentType && !contentType.includes("pdf") && !contentType.includes("octet-stream") && !url.includes(".pdf")) {
+            throw new Error("Invalid file format. The server did not return a PDF.");
+          }
+
+          data = await response.arrayBuffer();
+          
+          // Save to cache for next time
+          if (data) {
+            await pdfCache.set(url, data);
           }
         }
-
-        // 2. Fetch PDF as arraybuffer with Retry Logic
-        let response: Response | null = null;
-        let attempts = 0;
-        const maxAttempts = 3;
-
-        while (attempts < maxAttempts) {
-          try {
-            console.log(`[ProViewer] Fetching PDF (Attempt ${attempts + 1}/${maxAttempts})...`);
-            response = await fetch(url);
-            if (response.ok) break;
-
-            if (response.status === 403) throw new Error("Access denied (Premium required).");
-            if (response.status === 404) throw new Error("PDF file not found.");
-          } catch (err: any) {
-            if (attempts === maxAttempts - 1) throw err;
-            console.warn(`[ProViewer] Fetch retry ${attempts + 1}:`, err.message);
-          }
-          attempts++;
-          await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempts)));
-        }
-
-        if (!response || !response.ok) {
-          throw new Error(`Connection failed (${response?.status || 'Network Error'})`);
-        }
-
-        // Allow octet-stream for legacy GDrive links proxied via server
-        const contentType = response.headers.get("content-type") || "";
-        if (contentType && !contentType.includes("pdf") && !contentType.includes("octet-stream") && !url.includes(".pdf")) {
-          throw new Error("Invalid file format. The server did not return a PDF.");
-        }
-
-        const data = await response.arrayBuffer();
 
         // 3. Load the document
         const loadingTask = pdfjsLib.getDocument({
@@ -115,23 +115,12 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
         setPdf(pdfDoc);
         setNumPages(pdfDoc.numPages);
 
-        // OPTIMIZATION: Don't wait for all pages to load before showing the viewer
-        // Just fetch the first page to get metadata and allow initial render
+        // OPTIMIZATION: Only fetch the first page to get metadata and aspect ratio.
+        // Child PageRenderers will lazily fetch their own pages when scrolled into view.
         const firstPage = await pdfDoc.getPage(1);
-        setPages([firstPage]); 
+        setDefaultViewport(firstPage.getViewport({ scale: 1.0 }));
         
-        // Load remaining pages in background or on-demand
-        (async () => {
-          const loadedPages = [firstPage];
-          for (let i = 2; i <= pdfDoc.numPages; i++) {
-            const page = await pdfDoc.getPage(i);
-            loadedPages.push(page);
-            if (i % 5 === 0 || i === pdfDoc.numPages) {
-              setPages([...loadedPages]);
-            }
-          }
-          setPages(loadedPages);
-        })();
+        // We do NOT load all pages into memory. This prevents mobile OOM crashes.
 
         setLoading(false);
 
@@ -154,7 +143,7 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
         }
 
       } catch (err: any) {
-        console.error("[ProViewer] Critical Error:", err);
+        // console.("[ProViewer] Critical Error:", err);
         setError(err.message || "Failed to load document.");
         setLoading(false);
       }
@@ -166,7 +155,11 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
 
   // Track scroll position, update page, save progress, and track analytics
   useEffect(() => {
-    if (pages.length === 0 || !containerRef.current) return;
+    if (!pdf || !containerRef.current) return;
+
+    // OPTIMIZATION: Use a larger rootMargin to pre-load pages before they enter the viewport
+    // This reduces "white flashes" during scrolling.
+    const rootMargin = isMobile ? "100% 0px" : "200% 0px";
 
     observerRef.current = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
@@ -177,7 +170,7 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
             if (resourceId) {
               localStorage.setItem(`pdf_pos_${resourceId}`, pageNum.toString());
 
-              // Analytics: Track page view
+              // Analytics: Track page view (debounced implicitly by state update)
               import("@/lib/analytics").then(({ analytics }) => {
                 analytics.track({
                   eventType: "pdf_page_view",
@@ -189,11 +182,19 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
           }
         }
       });
-    }, { root: containerRef.current, threshold: 0.4 });
+    }, { 
+      root: containerRef.current, 
+      threshold: 0.1, // Trigger earlier
+      rootMargin
+    });
 
-    document.querySelectorAll(".pdf-page-wrapper").forEach((el) => observerRef.current?.observe(el));
-    return () => observerRef.current?.disconnect();
-  }, [pages, resourceId, currentPage, title]);
+    const wrappers = document.querySelectorAll(".pdf-page-wrapper");
+    wrappers.forEach((el) => observerRef.current?.observe(el));
+    
+    return () => {
+      observerRef.current?.disconnect();
+    };
+  }, [pdf, numPages, resourceId, currentPage, title, isMobile]);
 
   // Session Time Tracking
   useEffect(() => {
@@ -228,10 +229,7 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
     }
   }, [numPages, isResuming]);
 
-  const canViewPage = useCallback((index: number) => {
-    if (!isPremiumResource || isPremium) return true;
-    return index < 3;
-  }, [isPremium, isPremiumResource]);
+
 
   if (loading) return (
     <div className="flex flex-col h-[85vh] bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-2xl p-8">
@@ -263,30 +261,24 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
 
         <div
           ref={containerRef}
-          className="flex-1 overflow-auto p-4 sm:p-10 scroll-smooth custom-scrollbar relative"
-          style={{ WebkitOverflowScrolling: 'touch' }}
+          className="flex-1 overflow-auto p-4 sm:p-10 scroll-smooth custom-scrollbar relative bg-[#525659] transition-colors duration-500"
+          style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y pinch-zoom' }}
         >
           <div className="max-w-7xl mx-auto flex flex-col items-center">
-            {pages.map((page, idx) => {
-              const pageNum = idx + 1;
-              const allowed = canViewPage(idx);
+            {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => {
+              // OPTIMIZATION: Reduce visibility window on mobile to save memory
+              const visibilityWindow = isMobile ? 2 : 4;
+              const isVisible = Math.abs(currentPage - pageNum) <= visibilityWindow;
+              
               return (
-                <div key={idx} id={`page-wrap-${pageNum}`} data-page-num={pageNum} className="pdf-page-wrapper relative">
-                  {allowed ? (
-                    <PageRenderer page={page} scale={scale} pageNum={pageNum} isVisible={Math.abs(currentPage - pageNum) <= 3} />
-                  ) : (
-                    <div className="mb-10 bg-white/10 backdrop-blur-3xl border border-white/20 flex flex-col items-center justify-center p-12 text-center rounded-3xl shadow-2xl relative overflow-hidden" style={{ width: `${600 * scale}px`, height: `${840 * scale}px`, maxWidth: '90vw' }}>
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
-                      <div className="w-24 h-24 bg-candy-rose/30 rounded-full flex items-center justify-center mx-auto mb-8 text-candy-rose animate-pulse shadow-[0_0_40px_rgba(247,197,216,0.3)]">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-                      </div>
-                      <h4 className="text-[28px] font-bold text-white mb-4 tracking-tight">Premium Study Resource</h4>
-                      <p className="text-white/70 text-[15px] mb-10 max-w-sm leading-relaxed">Upgrade to PharmaCademy Premium to unlock full access to this document and join 10k+ successful students.</p>
-                      <button className="bg-candy-rose text-navy px-10 py-4 rounded-2xl font-bold hover:scale-105 active:scale-95 transition-all shadow-[0_20px_40px_rgba(247,197,216,0.4)] text-[16px]">
-                        GET PREMIUM ACCESS
-                      </button>
-                    </div>
-                  )}
+                <div key={pageNum} id={`page-wrap-${pageNum}`} data-page-num={pageNum} className="pdf-page-wrapper relative">
+                   <PageRenderer 
+                      pdfDoc={pdf} 
+                      defaultViewport={defaultViewport}
+                      scale={scale} 
+                      pageNum={pageNum} 
+                      isVisible={isVisible} 
+                   />
                 </div>
               );
             })}
@@ -359,6 +351,14 @@ export default function ProViewer({ url, title, resourceId, isPremiumResource = 
           50% { transform: translateY(-10px) rotate(8deg); }
         }
         .animate-float { animation: float 4s ease-in-out infinite; }
+
+        .pdf-page-wrapper {
+          will-change: transform;
+          backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
+          perspective: 1000;
+          -webkit-perspective: 1000;
+        }
 
         .textLayer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: hidden; opacity: 0.2; line-height: 1.0; }
         .textLayer span { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }

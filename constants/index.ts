@@ -6,19 +6,18 @@
 export const NAV_LINKS = [
   { label: "Home", href: "/" },
   { label: "Courses", href: "/courses" },
+  { label: "PPT Marketplace", href: "/marketplace" },
+  { label: "Urgent Help", href: "/urgent-help" },
   { label: "Donate", href: "/donate" },
 ] as const;
 
 export const ADMIN_NAV_LINKS = [
   { label: "Dashboard", href: "/admin", icon: "BarChart3" },
   { label: "Content", href: "/admin/content", icon: "BookOpen" },
+  { label: "Marketplace", href: "/admin/marketplace", icon: "ShoppingBag" },
+  { label: "Deal Room", href: "/admin/deals", icon: "MessageSquare" },
   { label: "Users", href: "/admin/users", icon: "Users" },
 ] as const;
-
-// --- Pricing ---
-export const PREMIUM_PRICE_PAISE = 4000; // ₹40
-export const PREMIUM_PRICE_DISPLAY = "₹40";
-export const PREMIUM_DURATION_DAYS = 30;
 
 // --- Donation presets ---
 export const DONATION_PRESETS = [
@@ -71,4 +70,10 @@ export const COLLECTIONS = {
   ANALYTICS: "analytics",
   REFERRALS: "referrals",
   DONATIONS: "donations",
+  PPT_MARKETPLACE: "ppt_marketplace",
+  PPT_PURCHASES: "ppt_purchases",
+  URGENT_TICKETS: "urgent_work_tickets",
+  URGENT_MESSAGES: "urgent_work_messages",
 } as const;
+
+

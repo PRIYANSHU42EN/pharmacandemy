@@ -49,7 +49,6 @@ export function useCourses() {
           setError(null);
         }
       } catch (err: any) {
-        console.error("[API] useCourses error:", err.message);
         if (mounted.current) setError(err);
       } finally {
         if (mounted.current) setLoading(false);
@@ -111,7 +110,6 @@ export function useCourse(courseId: string) {
           setError(null);
         }
       } catch (err: any) {
-        console.error("[API] useCourse error:", err.message);
         if (mounted.current) setError(err);
       } finally {
         if (mounted.current) setLoading(false);
@@ -159,7 +157,6 @@ export function useSemesters(courseId: string) {
           setError(null);
         }
       } catch (err: any) {
-        console.error("[API] useSemesters error:", err.message);
         if (mounted.current) setError(err);
       } finally {
         if (mounted.current) setLoading(false);
@@ -207,7 +204,6 @@ export function useSemester(semesterId: string) {
           setError(null);
         }
       } catch (err: any) {
-        console.error("[API] useSemester error:", err.message);
         if (mounted.current) setError(err);
       } finally {
         if (mounted.current) setLoading(false);
@@ -243,7 +239,6 @@ export function useAllSubjects() {
           setError(null);
         }
       } catch (err: any) {
-        console.error("[API] useAllSubjects error:", err.message);
         if (mounted.current) setError(err);
       } finally {
         if (mounted.current) setLoading(false);
@@ -295,7 +290,6 @@ export function useSubjects(courseId: string) {
           setError(null);
         }
       } catch (err: any) {
-        console.error("[API] useSubjects error:", err.message);
         if (mounted.current) setError(err);
       } finally {
         if (mounted.current) setLoading(false);
@@ -359,14 +353,11 @@ export function useSubject(subjectId: string) {
         const data = await response.json();
         
         if (!response.ok) {
-          if (response.status === 404) {
-            console.warn(`[API] useSubject: Subject ${subjectId} not found`);
-            if (mounted.current) {
-              setSubject(null);
-              setError(null);
-            }
-            return;
+          if (mounted.current) {
+            setSubject(null);
+            setError(null);
           }
+          return;
           throw new Error(data.error || 'Failed to fetch subject');
         }
         
@@ -376,7 +367,6 @@ export function useSubject(subjectId: string) {
           setError(null);
         }
       } catch (err: any) {
-        console.error("[API] useSubject error:", err.message);
         if (mounted.current) setError(err);
       } finally {
         if (mounted.current) setLoading(false);
@@ -428,7 +418,6 @@ export function useResources(subjectId: string) {
           setError(null);
         }
       } catch (err: any) {
-        console.error("[API] useResources error:", err.message);
         if (mounted.current) setError(err);
       } finally {
         if (mounted.current) setLoading(false);
@@ -489,9 +478,23 @@ export function useResource(resourceId: string) {
     async function fetchResource() {
       try {
         const response = await fetch(`/api/resources/list?id=${resourceId}`);
-        const data = await response.json();
+        const contentType = response.headers.get("content-type");
         
-        if (!response.ok) throw new Error(data.error || 'Failed to fetch resource');
+        if (!response.ok || !contentType?.includes("application/json")) {
+          const text = await response.text();
+          let errorMsg = `Failed to fetch resource (${response.status})`;
+          try {
+            if (contentType?.includes("application/json")) {
+              const data = JSON.parse(text);
+              errorMsg = data.error || errorMsg;
+            }
+          } catch (e) {
+            // Not JSON or malformed
+          }
+          throw new Error(errorMsg);
+        }
+
+        const data = await response.json();
         
         if (mounted.current) {
           setResource(data);
@@ -499,7 +502,6 @@ export function useResource(resourceId: string) {
           setError(null);
         }
       } catch (err: any) {
-        console.error("[API] useResource error:", err.message);
         if (mounted.current) setError(err);
       } finally {
         if (mounted.current) setLoading(false);
@@ -521,7 +523,9 @@ export function useResource(resourceId: string) {
 export function useAdminStats() {
   const [stats, setStats] = useState({
     totalUsers: 0,
-    premiumUsers: 0,
+    totalMarketplaceSales: 0,
+    totalUrgentTickets: 0,
+    pendingUrgentTickets: 0,
     activeToday: 0,
     totalResources: 0,
     paymentCount: 0,
@@ -545,14 +549,16 @@ export function useAdminStats() {
         if (isSubscribed && response.ok) {
           setStats({
             totalUsers: data.totalUsers || 0,
-            premiumUsers: data.premiumUsers || 0,
+            totalMarketplaceSales: data.totalMarketplaceSales || 0,
+            totalUrgentTickets: data.totalUrgentTickets || 0,
+            pendingUrgentTickets: data.pendingUrgentTickets || 0,
             activeToday: data.activeToday || 0,
             totalResources: data.totalResources || 0,
             paymentCount: data.paymentCount || 0,
           });
         }
       } catch (err) {
-        console.warn("[AdminStats] API error:", err);
+        // Silent fail in UI, monitored via server logs
       } finally {
         if (isSubscribed) setLoading(false);
       }
@@ -629,7 +635,7 @@ export function useRealtimeAnalytics() {
           }
         }
       } catch (err) {
-        console.error("[Analytics] API error:", err);
+        // Silent fail in UI
       } finally {
         if (isSubscribed) setLoading(false);
       }
@@ -701,8 +707,6 @@ export function useAdminUsers() {
             email: u.email,
             displayName: u.name || u.email?.split('@')[0] || "User",
             role: u.role || 'user',
-            isPremium: u.is_premium,
-            premiumExpiry: u.premium_expires_at,
             createdAt: u.created_at,
             updatedAt: u.updated_at
           }));
@@ -712,7 +716,6 @@ export function useAdminUsers() {
           throw new Error(data.error || "Failed to fetch users");
         }
       } catch (err: any) {
-        console.error("[AdminUsers] API load failed:", err);
         if (isSubscribed) setError(err);
       } finally {
         if (isSubscribed) setLoading(false);
@@ -852,7 +855,6 @@ export function useAdminSubjects(courseId?: string) {
           ...s,
           courseId: s.course_id,
           semesterNumber: s.semester_number,
-          isPremium: s.is_premium,
           createdAt: s.created_at,
           updatedAt: s.updated_at
         }));
@@ -937,7 +939,6 @@ export function useAdminResources(subjectId?: string) {
           ...r,
           courseId: r.course_id,
           subjectId: r.subject_id,
-          isPremium: r.is_premium,
           isDeleted: r.is_deleted,
           createdAt: r.created_at,
           updatedAt: r.updated_at

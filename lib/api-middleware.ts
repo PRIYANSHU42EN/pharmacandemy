@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyFirebaseToken, checkAdminRole } from "@/lib/auth-utils";
+import logger from "@/lib/logger";
 
 type ApiHandler = (req: NextRequest, ctx: any) => Promise<NextResponse> | NextResponse;
 
@@ -16,7 +17,7 @@ export function withAuth(handler: ApiHandler): ApiHandler {
       
       return await handler(req, ctx);
     } catch (error) {
-      console.error("[Auth Middleware] Error:", error);
+      logger.error(error as any, "[Auth Middleware] Error");
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   };
@@ -37,7 +38,7 @@ export function withAdmin(handler: ApiHandler): ApiHandler {
       
       return await handler(req, ctx);
     } catch (error) {
-      console.error("[Admin Middleware] Error:", error);
+      logger.error(error as any, "[Admin Middleware] Error");
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
   });

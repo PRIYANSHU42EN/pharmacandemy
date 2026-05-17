@@ -80,6 +80,9 @@
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%; /* Prevent iOS text auto-scaling */
+  -webkit-tap-highlight-color: transparent; /* Remove Android blue tap box */
+  overscroll-behavior-y: none; /* Prevent pull-to-refresh & bounce */
 }
 
 body {
@@ -93,6 +96,7 @@ body {
   flex-direction: column;
   overflow-x: hidden;
   width: 100%;
+  overscroll-behavior-y: none; /* Prevent pull-to-refresh & bounce */
 }
 
 ::selection {
@@ -340,8 +344,8 @@ h3 {
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
-  padding-left: 24px;
-  padding-right: 24px;
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
 }
 
 /* Fix for rotated logo text */
@@ -442,4 +446,26 @@ h1, h2, h3 {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+/* ==========================================================================
+   Skeleton Shimmer Effect
+   ========================================================================== */
+
+.bg-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.8s infinite cubic-bezier(0.4, 0, 0.2, 1);
 }

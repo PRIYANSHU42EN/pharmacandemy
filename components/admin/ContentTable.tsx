@@ -41,7 +41,6 @@ const ContentTable = memo(({
             <th className="px-6 py-4 text-[11px] font-bold uppercase text-gray-400">
               {activeTab === "courses" ? "Code" : activeTab === "subjects" ? "Course" : "Context"}
             </th>
-            <th className="px-6 py-4 text-[11px] font-bold uppercase text-gray-400">Status</th>
             <th className="px-6 py-4 text-right text-[11px] font-bold uppercase text-gray-400">Actions</th>
           </tr>
         </thead>
@@ -64,9 +63,6 @@ const ContentTable = memo(({
                   </td>
                   <td className="px-6 py-4">
                     <p className="text-[12px]">{allSubjects.find(s => s.id === res.subjectId)?.name || '...'}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge variant={res.isPremium ? "rose" : "mint"}>{res.isPremium ? "Premium" : "Free"}</Badge>
                   </td>
                   <td className="px-6 py-4 text-right flex justify-end gap-2">
                     <button
@@ -106,9 +102,6 @@ const ContentTable = memo(({
                   </td>
                   <td className="px-6 py-4">
                     <p className="text-[12px]">{allCourses.find(c => c.id === sub.courseId)?.name || '...'}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge variant={sub.isPremium ? "rose" : "mint"}>{sub.isPremium ? "Premium" : "Free"}</Badge>
                   </td>
                   <td className="px-6 py-4 text-right flex justify-end gap-2">
                     <button
@@ -154,11 +147,6 @@ const ContentTable = memo(({
                   </td>
                   <td className="px-6 py-4">
                     <p className="text-[11px] text-gray-500 uppercase font-mono">{course.code || "no-code"}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge variant={course.isActive ? "mint" : "peach"}>
-                      {course.isActive ? "Active" : "Inactive"}
-                    </Badge>
                   </td>
                   <td className="px-6 py-4 text-right flex justify-end gap-2">
                     <button

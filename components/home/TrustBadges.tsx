@@ -4,7 +4,7 @@ export default function TrustBadges() {
   const badges = [
     { icon: "🔬", label: "Cubecist Reviewed" },
     { icon: "📋", label: "Structured Content" },
-    { icon: "💰", label: "Affordable Premium" },
+    { icon: "💰", label: "Free Access" },
     { icon: "🔒", label: "Secure Payments" },
   ];
 

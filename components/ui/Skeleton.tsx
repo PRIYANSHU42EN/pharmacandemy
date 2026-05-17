@@ -11,11 +11,14 @@ interface SkeletonProps {
 function SkeletonPulse({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <div
-      className={cn("animate-pulse rounded-lg", className)}
-      style={{ background: "rgba(26, 31, 60, 0.06)", ...style }}
-    />
+      className={cn("relative overflow-hidden rounded-lg", className)}
+      style={{ background: "rgba(26, 31, 60, 0.05)", ...style }}
+    >
+      <div className="absolute inset-0 bg-shimmer animate-shimmer" />
+    </div>
   );
 }
+
 
 /** Skeleton card placeholder matching ResourceCard dimensions */
 export function SkeletonCard() {

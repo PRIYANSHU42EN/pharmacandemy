@@ -1,15 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import StreakWidget from "@/components/shared/StreakWidget";
 
+const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,20}$/;
+
 export default function ProfilePage() {
-  const { user, userProfile, isPremium, loading, logout } = useAuth();
+  const { user, userProfile, loading, logout, refreshProfile } = useAuth();
   const router = useRouter();
   const [copied, setCopied] = useState(false);
+
+  // Username editing state
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [usernameError, setUsernameError] = useState("");
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameSuccess, setUsernameSuccess] = useState(false);
+  const usernameInputRef = useRef<HTMLInputElement>(null);
 
   // Route protection
   useEffect(() => {
@@ -17,6 +27,13 @@ export default function ProfilePage() {
       router.replace("/login");
     }
   }, [user, loading, router]);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditingUsername && usernameInputRef.current) {
+      usernameInputRef.current.focus();
+    }
+  }, [isEditingUsername]);
 
   if (loading || !user) {
     return (
@@ -30,6 +47,67 @@ export default function ProfilePage() {
   const displayName = userProfile?.displayName || user.displayName || "Student";
   const email = userProfile?.email || user.email || "";
   const initials = displayName.charAt(0).toUpperCase();
+
+  const handleStartEditUsername = () => {
+    setNewUsername(userProfile?.username || "");
+    setUsernameError("");
+    setUsernameSuccess(false);
+    setIsEditingUsername(true);
+  };
+
+  const handleCancelEditUsername = () => {
+    setIsEditingUsername(false);
+    setNewUsername("");
+    setUsernameError("");
+  };
+
+  const handleSaveUsername = async () => {
+    const trimmed = newUsername.trim().toLowerCase();
+
+    // Client-side validation
+    if (!USERNAME_REGEX.test(trimmed)) {
+      setUsernameError("3-20 characters, letters, numbers & underscores only.");
+      return;
+    }
+
+    // Skip if unchanged
+    if (trimmed === userProfile?.username) {
+      setIsEditingUsername(false);
+      return;
+    }
+
+    setUsernameSaving(true);
+    setUsernameError("");
+
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/users/me", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ username: trimmed }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setUsernameError(data.error || "Failed to update username.");
+        return;
+      }
+
+      // Refresh profile from server to get latest data
+      await refreshProfile();
+      setIsEditingUsername(false);
+      setUsernameSuccess(true);
+      setTimeout(() => setUsernameSuccess(false), 3000);
+    } catch (err) {
+      setUsernameError("Network error. Please try again.");
+    } finally {
+      setUsernameSaving(false);
+    }
+  };
 
   const handleCopy = async () => {
     try {
@@ -62,7 +140,7 @@ export default function ProfilePage() {
       await logout();
       router.replace("/");
     } catch (err) {
-      console.error("[Profile] Logout failed:", err);
+      // console.("[Profile] Logout failed:", err);
     }
   };
 
@@ -91,44 +169,107 @@ export default function ProfilePage() {
             <p className="text-[14px]" style={{ color: "var(--color-slate)", fontFamily: "var(--font-body)" }}>
               {email}
             </p>
-            <div className="flex items-center gap-2 mt-2 justify-center sm:justify-start">
-              {isPremium ? (
-                <span
-                  className="text-[11px] font-medium px-3 py-1 rounded-full"
-                  style={{
-                    background: "rgba(247,197,216,0.15)",
-                    color: "var(--color-candy-rose)",
-                    fontFamily: "var(--font-body)",
-                  }}
-                >
-                  👑 Premium Active
-                </span>
-              ) : (
+
+            {/* Username Display / Edit */}
+            <div className="mt-1.5 flex items-center gap-2 justify-center sm:justify-start flex-wrap">
+              {!isEditingUsername ? (
                 <>
                   <span
-                    className="text-[11px] font-medium px-3 py-1 rounded-full"
-                    style={{
-                      background: "rgba(197,247,232,0.15)",
-                      color: "var(--color-candy-mint)",
-                      fontFamily: "var(--font-body)",
-                    }}
-                  >
-                    Free Plan
-                  </span>
-                  <Link
-                    href="/upgrade"
-                    className="text-[11px] font-medium px-3 py-1 rounded-full transition-all hover:scale-105"
+                    className="text-[13px] font-semibold px-2.5 py-0.5 rounded-lg"
                     style={{
                       background: "rgba(247,197,216,0.12)",
                       color: "var(--color-candy-rose)",
-                      border: "0.5px solid var(--color-candy-rose)",
-                      fontFamily: "var(--font-body)",
+                      fontFamily: "var(--font-mono)",
                     }}
                   >
-                    Upgrade →
-                  </Link>
+                    @{userProfile?.username || "unassigned"}
+                  </span>
+                  <button
+                    onClick={handleStartEditUsername}
+                    className="text-[11px] font-medium px-2 py-0.5 rounded-md transition-all hover:scale-105 active:scale-95"
+                    style={{
+                      background: "rgba(255,255,255,0.08)",
+                      color: "rgba(255,255,255,0.6)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                    }}
+                    title="Change username"
+                  >
+                    ✏️ Edit
+                  </button>
+                  {usernameSuccess && (
+                    <span
+                      className="text-[11px] font-bold px-2 py-0.5 rounded-md animate-in fade-in slide-in-from-left-2"
+                      style={{ background: "rgba(197,247,232,0.15)", color: "var(--color-candy-mint)" }}
+                    >
+                      ✓ Saved!
+                    </span>
+                  )}
                 </>
+              ) : (
+                <div className="flex flex-col gap-2 w-full max-w-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[14px]" style={{ color: "rgba(255,255,255,0.5)" }}>@</span>
+                    <input
+                      ref={usernameInputRef}
+                      type="text"
+                      value={newUsername}
+                      onChange={(e) => {
+                        setNewUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ""));
+                        setUsernameError("");
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveUsername();
+                        if (e.key === "Escape") handleCancelEditUsername();
+                      }}
+                      maxLength={20}
+                      placeholder="new_username"
+                      className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-[13px] text-white placeholder:text-white/30 outline-none focus:border-[var(--color-candy-rose)] focus:ring-1 focus:ring-[var(--color-candy-rose)]/30 transition-all"
+                      style={{ fontFamily: "var(--font-mono)" }}
+                      disabled={usernameSaving}
+                    />
+                    <button
+                      onClick={handleSaveUsername}
+                      disabled={usernameSaving || !newUsername.trim()}
+                      className="text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                      style={{
+                        background: "var(--color-candy-rose)",
+                        color: "var(--color-navy)",
+                      }}
+                    >
+                      {usernameSaving ? "..." : "Save"}
+                    </button>
+                    <button
+                      onClick={handleCancelEditUsername}
+                      disabled={usernameSaving}
+                      className="text-[11px] font-medium px-2 py-1.5 rounded-lg transition-all hover:bg-white/10"
+                      style={{ color: "rgba(255,255,255,0.6)" }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {usernameError && (
+                    <p className="text-[11px] font-medium px-1 animate-in fade-in slide-in-from-top-1" style={{ color: "#f87171" }}>
+                      ⚠ {usernameError}
+                    </p>
+                  )}
+                  <p className="text-[10px] px-1" style={{ color: "rgba(255,255,255,0.35)" }}>
+                    3-20 chars • letters, numbers, underscores
+                  </p>
+                </div>
               )}
+            </div>
+
+            <div className="flex items-center gap-2 mt-2 justify-center sm:justify-start">
+              <span
+                className="text-[11px] font-medium px-3 py-1 rounded-full"
+                style={{
+                  background: "rgba(197,247,232,0.15)",
+                  color: "var(--color-candy-mint)",
+                  fontFamily: "var(--font-body)",
+                }}
+              >
+                🎓 Academic Account
+              </span>
             </div>
           </div>
         </div>
@@ -152,7 +293,7 @@ export default function ProfilePage() {
               Referral
             </p>
             <p className="text-[13px]" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
-              Share your code and earn free premium days!
+              Share your code with friends and grow the community!
             </p>
 
             {/* Code display */}
@@ -209,3 +350,4 @@ export default function ProfilePage() {
     </section>
   );
 }
+

@@ -27,7 +27,7 @@ export default function ContactPage() {
         alert(result.error || "Failed to send message. Please try again.");
       }
     } catch (err) {
-      console.error("Contact form error:", err);
+      // console.("Contact form error:", err);
       alert("An error occurred. Please check your connection.");
     } finally {
       setLoading(false);

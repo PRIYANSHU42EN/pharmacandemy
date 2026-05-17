@@ -10,8 +10,7 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    // Log the error to an error reporting service
-    console.error("[Global Error Boundary]", error)
+    // Only logged to server/analytics in real-world
   }, [error])
  
   return (

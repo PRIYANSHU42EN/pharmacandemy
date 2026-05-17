@@ -31,11 +31,7 @@ function SearchContent() {
     }));
   }, [query, allSubjects, allCourses]);
 
-  const filtered = filter === "all"
-    ? results
-    : filter === "premium"
-    ? results.filter((r) => r.isPremium)
-    : results.filter((r) => !r.isPremium);
+  const filtered = results;
 
   return (
     <>
@@ -51,29 +47,6 @@ function SearchContent() {
           <p className="text-[15px] mb-6" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
             {filtered.length} result{filtered.length !== 1 ? "s" : ""} for &quot;<span style={{ color: "var(--color-navy)", fontWeight: 500 }}>{query}</span>&quot;
           </p>
-
-          {/* Filters */}
-          <div className="flex gap-2 mb-6">
-            {[
-              { value: "all", label: "All" },
-              { value: "free", label: "Free" },
-              { value: "premium", label: "Premium" },
-            ].map((f) => (
-              <button
-                key={f.value}
-                onClick={() => setFilter(f.value)}
-                className="text-[12px] font-medium px-4 py-2 rounded-full whitespace-nowrap transition-all"
-                style={{
-                  background: filter === f.value ? "var(--color-navy)" : "rgba(26,31,60,0.04)",
-                  color: filter === f.value ? "var(--color-candy-rose)" : "var(--color-mid)",
-                  fontFamily: "var(--font-body)",
-                  border: filter === f.value ? "none" : "0.5px solid rgba(26,31,60,0.08)",
-                }}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
 
           {/* Results */}
           {filtered.length > 0 ? (
@@ -91,9 +64,7 @@ function SearchContent() {
                   <div
                     className="w-12 h-12 rounded-lg flex items-center justify-center text-[24px] shrink-0"
                     style={{
-                      background: result.isPremium
-                        ? "rgba(247,197,216,0.15)"
-                        : "rgba(197,247,232,0.15)",
+                      background: "rgba(197,247,232,0.15)",
                     }}
                   >
                     📚
@@ -110,9 +81,6 @@ function SearchContent() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant={result.isPremium ? "rose" : "mint"}>
-                      {result.isPremium ? "Premium" : "Free"}
-                    </Badge>
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="opacity-40 group-hover:opacity-100 transition-opacity">
                       <path d="M5 3l4 4-4 4" stroke="var(--color-navy)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>

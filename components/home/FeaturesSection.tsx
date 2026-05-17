@@ -25,7 +25,7 @@ const features = [
     emoji: "📄",
     title: "PDF Notes",
     description:
-      "In-app PDF viewer — no downloads, no app-switching. Pinch to zoom on mobile. Premium notes with blur gate.",
+      "In-app PDF viewer — no downloads, no app-switching. Pinch to zoom on mobile. High-quality study material for all.",
     badge: "In-App",
     badgeClass: "badge-lavender",
     gradient: "linear-gradient(135deg, rgba(216,197,247,0.25), rgba(216,197,247,0.05))",

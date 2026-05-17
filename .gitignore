@@ -48,3 +48,21 @@ next-env.d.ts
 
 # project subfolder (ignore once moved)
 /pharmacademy
+
+# scratch scripts and temp files
+/scratch/
+
+# Agent caches and skills
+.agents/
+skills-lock.json
+
+# Local guides and developer logs
+chat.txt
+dev_log.txt
+*.log
+Professional_SEO_Guide.pdf
+
+# Supabase temporary files
+.temp/
+supabase/.temp/
+

@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { title, description, type, url, subject_id, course_id, is_premium, preview_image_url, tags, year } = body;
+    const { title, description, type, url, subject_id, course_id, preview_image_url, tags, year } = body;
 
     const { data, error } = await supabaseAdmin!
       .from("resources")
@@ -51,7 +51,6 @@ export async function POST(req: NextRequest) {
         url,
         subject_id,
         course_id,
-        is_premium: is_premium || false,
         preview_image_url,
         tags: tags || [],
         year,
@@ -75,7 +74,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(data);
   } catch (error: any) {
     console.error("[Admin API] Error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -114,7 +113,7 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -199,6 +198,6 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

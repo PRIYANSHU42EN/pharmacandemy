@@ -1,6 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /admin
-Disallow: /dashboard
-
-Sitemap: https://cubepharm.vercel.app/sitemap.xml

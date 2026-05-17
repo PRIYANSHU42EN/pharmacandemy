@@ -19,6 +19,126 @@ export type AdminRole = "super-admin" | "content-admin" | "admin" | "viewer";
 
 export type PaymentStatus = "created" | "captured" | "failed" | "refunded";
 
+export type TicketStatus = "pending" | "quoted" | "paid" | "in_progress" | "delivered" | "completed" | "cancelled";
+
+export type UrgencyLevel = "low" | "medium" | "high" | "emergency";
+
+// ---------------------------------------------------------------------------
+// PPT Marketplace Types
+// ---------------------------------------------------------------------------
+
+export interface PPTCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  icon?: string;
+}
+
+export interface CreatorProfile {
+  id: string;
+  user_id: string;
+  display_name: string;
+  bio?: string;
+  avatar_url?: string;
+  total_sales: number;
+  rating: number;
+  is_verified: boolean;
+  social_links?: {
+    twitter?: string;
+    linkedin?: string;
+    website?: string;
+  };
+  created_at: any;
+}
+
+export interface PPTListing {
+  id: string;
+  title: string;
+  category_id: string;
+  topic: string;
+  creator_id?: string;
+  price: number; // in paise
+  description?: string;
+  thumbnail_url?: string;
+  preview_images: string[]; // screenshots/slides
+  sample_file_url?: string; // free preview download
+  full_file_url?: string; // locked until purchase
+  download_count: number;
+  rating: number;
+  tags: string[];
+  presentation_type: string;
+  moderation_status: 'pending' | 'approved' | 'rejected';
+  is_featured: boolean;
+  is_active: boolean;
+  created_at: any;
+  updated_at: any;
+  // Join fields (optional)
+  creator?: CreatorProfile;
+  category?: PPTCategory;
+}
+
+export interface PPTPurchase {
+  id: string;
+  user_id: string;
+  ppt_id: string;
+  amount: number;
+  payment_id: string;
+  created_at: any;
+}
+
+export interface PPTReview {
+  id: string;
+  pptId: string;
+  userId: string;
+  rating: number;
+  comment?: string;
+  createdAt: any;
+}
+
+// ---------------------------------------------------------------------------
+// AI Urgent Work Types
+// ---------------------------------------------------------------------------
+
+export interface UrgentWorkTicket {
+  id: string;
+  userId: string;
+  topic: string;
+  subject: string;
+  deadline: any;
+  requirements: {
+    pages?: number;
+    slides?: number;
+    formatting?: string;
+    customNote?: string;
+  };
+  urgencyLevel: UrgencyLevel;
+  budgetExpectation?: number;
+  proposedPrice?: number;
+  status: TicketStatus;
+  adminNotes?: string;
+  aiSummary?: string;
+  complexityScore?: number; // 1-10
+  urgencyScore?: number; // 1-10
+  paymentId?: string;
+  deliveryUrl?: string;
+  createdAt: any;
+  updatedAt: any;
+}
+
+export interface UrgentWorkMessage {
+  id: string;
+  ticketId: string;
+  senderId: string | null; // null for AI
+  message: string;
+  isAi: boolean;
+  attachments?: string[];
+  createdAt: any;
+}
+
+// ---------------------------------------------------------------------------
+// Firestore Document Types
+// ---------------------------------------------------------------------------
 export type ReferralStatus = "signed-up" | "premium" | "rewarded";
 
 // ---------------------------------------------------------------------------
@@ -56,7 +176,6 @@ export interface Subject {
   name: string;
   description?: string;
   coverImageUrl?: string;
-  isPremium: boolean;
   resourceCount: number;
   createdAt: any;
   updatedAt: any;
@@ -72,7 +191,6 @@ export interface Resource {
   subjectId: string;
   url: string; // Google Drive embed URL or YouTube URL
   previewImage?: string; // Optional thumbnail link
-  isPremium: boolean;
   tags: ContentTag[];
   year?: number; // PYQ year (2015–2024)
   createdAt: any;
@@ -88,11 +206,9 @@ export interface UserProfile {
   uid: string;
   email: string;
   displayName?: string;
+  username?: string;
   photoURL?: string;
-  // Premium access (PRD §4.4)
-  isPremium: boolean;
-  premiumExpiry: any | null;
-  premiumActivatedAt?: any;
+  // Legacy fields kept for compatibility or removed if not needed
   razorpayPaymentId?: string;
   razorpayOrderId?: string;
   // Referral (PRD §4.10.2)
@@ -109,6 +225,7 @@ export interface UserProfile {
   // Audit
   createdAt: any;
   updatedAt: any;
+  isCreator?: boolean;
 }
 
 /** Payment record (PRD §4.5) — immutable once verified */

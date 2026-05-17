@@ -58,10 +58,11 @@ export default function PdfViewer({ url, title }: PdfViewerProps) {
           const driveId = idMatch ? idMatch[1] : null;
           
           if (driveId) {
-            finalUrl = `/api/pdf/${driveId}`;
+            const token = user ? await user.getIdToken() : null;
+            finalUrl = token ? `/api/pdf/${driveId}?token=${token}` : `/api/pdf/${driveId}`;
             setUseIframe(false); // We want to use PDF.js for the proxied URL
           } else {
-            console.warn("[PdfViewer] Could not extract ID from Drive URL, falling back to iframe");
+            // console.("[PdfViewer] Could not extract ID from Drive URL, falling back to iframe");
             setUseIframe(true);
             setCurrentUrl(workableUrl.replace("/view", "/preview"));
             setLoading(false);
@@ -101,7 +102,7 @@ export default function PdfViewer({ url, title }: PdfViewerProps) {
         setNumPages(pdfDoc.numPages);
         setLoading(false);
       } catch (err: any) {
-        console.error("[PDFViewer] Error loading PDF:", err.message);
+        // console.("[PDFViewer] Error loading PDF:", err.message);
         
         // If it's a proxy error, it might be due to private file
         if (err.message.includes("403") || err.message.includes("401")) {
@@ -112,7 +113,7 @@ export default function PdfViewer({ url, title }: PdfViewerProps) {
         
         // Last resort fallback
         if (!useIframe) {
-          console.log("[PDFViewer] Falling back to iframe after error");
+          // console.("[PDFViewer] Falling back to iframe after error");
           setUseIframe(true);
         }
         setLoading(false);

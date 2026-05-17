@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase/admin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,7 +27,8 @@ export async function POST(req: NextRequest) {
 
     const authenticatedUserId = decodedToken.uid;
 
-    const { amount, currency = "INR", type = "subscription" } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { amount, currency = "INR", type = "subscription" } = body;
 
     const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
     const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -38,18 +40,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Server-enforced pricing — ignore client-sent amount for subscription types
+    // Server-enforced pricing
     let finalAmount: number;
-    if (type === "premium_monthly") finalAmount = 4000; // ₹40
-    else if (type === "premium_biannual") finalAmount = 6000; // ₹60
+    let notes: any = { type, userId: authenticatedUserId };
+
+    if (type === "premium_monthly" || type === "premium_biannual" || type === "subscription") {
+       // LEGACY: Premium is now decommissioned, but we keep this for backward compatibility or if some links still exist
+       finalAmount = 4000; 
+    }
+    else if (type === "ppt_purchase") {
+      const { pptId } = body;
+      if (!pptId) return NextResponse.json({ error: "pptId required" }, { status: 400 });
+      
+      const { data: ppt, error: pptErr } = await supabaseAdmin
+        .from('ppt_marketplace')
+        .select('price')
+        .eq('id', pptId)
+        .single();
+      
+      if (pptErr || !ppt) return NextResponse.json({ error: "Asset not found" }, { status: 404 });
+      finalAmount = ppt.price;
+      notes.pptId = pptId;
+    }
     else if (type === "donation") {
-      // For donations, validate amount is a positive integer
-      if (!amount || typeof amount !== "number" || amount < 100 || amount > 10000000) {
+      if (!amount || typeof amount !== "number" || amount < 100) {
         return NextResponse.json({ error: "Invalid donation amount" }, { status: 400 });
       }
       finalAmount = Math.round(amount);
     }
-    else if (type === "subscription") finalAmount = 4000; // Default legacy fallback
     else {
       return NextResponse.json({ error: "Invalid payment type" }, { status: 400 });
     }
@@ -64,7 +82,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         amount: finalAmount,
         currency,
-        notes: { type, userId: authenticatedUserId },
+        notes,
       }),
     });
 

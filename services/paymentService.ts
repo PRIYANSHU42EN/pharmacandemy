@@ -72,6 +72,7 @@ export class PaymentService {
       const orderData = await orderRes.json();
       const amount = orderData.amount;
       const type = orderData.notes?.type || "subscription";
+      const metadata = orderData.notes || {};
 
       // 4. Save payment record
       const { error: paymentError } = await supabaseAdmin.from("payments").insert({
@@ -89,60 +90,51 @@ export class PaymentService {
 
       if (paymentError) {
         console.error("[PaymentService] Failed to insert payment record:", paymentError.message);
-        // We continue anyway to activate premium, as the money was captured
       }
 
-      // 5. Grant premium status (Step 2: current date + 1 month)
-      const isPremiumEligible = 
-        type.includes("premium") || 
-        (type === "subscription" && amount >= 4000);
+      // 5. Handle Specific Payment Types
+      
+      // --- PPT PURCHASE ---
+      if (type === "ppt_purchase" && metadata.pptId) {
+        await supabaseAdmin.from("ppt_purchases").insert({
+          user_id: userId,
+          ppt_id: metadata.pptId,
+          amount: amount,
+          payment_id: razorpayPaymentId,
+          created_at: new Date().toISOString()
+        });
 
-      if (isPremiumEligible) {
-        const expiryDate = new Date();
-        expiryDate.setMonth(expiryDate.getMonth() + 1); // Exact 1 month as requested
-
-        console.log(`[PaymentService] Activating premium for ${userId}. Expiry: ${expiryDate.toISOString()}`);
-
-        // Update Supabase (Source of Truth)
-        const { error: userUpdateError } = await supabaseAdmin
-          .from("users")
-          .update({
-            is_premium: true,
-            premium_expires_at: expiryDate.toISOString(),
-            updated_at: new Date().toISOString(),
+        // Increment download count directly
+        const { data: ppt } = await supabaseAdmin
+          .from("ppt_marketplace")
+          .select("download_count")
+          .eq("id", metadata.pptId)
+          .single();
+        
+        await supabaseAdmin
+          .from("ppt_marketplace")
+          .update({ 
+            download_count: (ppt?.download_count || 0) + 1,
+            updated_at: new Date().toISOString()
           })
-          .eq("id", userId);
+          .eq("id", metadata.pptId);
 
-        if (userUpdateError) {
-          console.error(`[PaymentService] Supabase user update FAILED for ${userId}:`, userUpdateError.message);
-          return { success: false, message: "Failed to update user profile in database" };
-        }
+        return { success: true, message: "Presentation unlocked successfully" };
+      }
 
-        // Sync to Firestore (Dual-write for backward compatibility)
-        try {
-          await adminDb.collection("users").doc(userId).update({
-            isPremium: true,
-            premiumExpiry: expiryDate.toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
-          console.log(`[PaymentService] Firestore sync successful for ${userId}`);
-        } catch (fErr: any) {
-          console.warn("[PaymentService] Firestore sync failed (ignoring):", fErr.message);
-        }
+      // --- URGENT WORK PAYMENT ---
+      if (type === "urgent_work" && metadata.ticketId) {
+        await supabaseAdmin.from("urgent_work_tickets").update({
+          status: "paid",
+          payment_id: razorpayPaymentId,
+          updated_at: new Date().toISOString()
+        }).eq("id", metadata.ticketId);
 
-        // Log analytics event
-        try {
-          await supabaseAdmin.from("analytics_events").insert({
-            user_id: userId,
-            event_type: "payment_success",
-            metadata: { amount, type, orderId: razorpayOrderId }
-          });
-        } catch (aErr) {}
-
-        return { success: true, message: "Premium activated successfully" };
+        return { success: true, message: "Payment received. Work will start shortly." };
       }
 
       return { success: true, message: "Payment verified" };
+
 
     } catch (err: any) {
       console.error("[PaymentService] Unexpected Error:", err.message);

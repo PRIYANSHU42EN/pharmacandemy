@@ -28,33 +28,19 @@ export default function AdminDashboardPage() {
       color: "var(--color-badge-rose-text)",
     },
     {
-      label: "Active Now",
-      value: analytics.activeNow.toString(),
-      icon: "⚡",
-      bg: "rgba(197,247,232,0.15)",
-      color: "#059669", // Emerald
-      isRealtime: true,
-    },
-    {
-      label: "Views Today",
-      value: analytics.viewsToday.toString(),
-      icon: "👁️",
+      label: "Marketplace Sales",
+      value: stats.totalMarketplaceSales.toString(),
+      icon: "🏪",
       bg: "rgba(216,197,247,0.12)",
       color: "var(--color-badge-lavender-text)",
     },
     {
-      label: "Logins Today",
-      value: analytics.loginsToday.toString(),
-      icon: "🔑",
-      bg: "rgba(247,223,197,0.12)",
-      color: "var(--color-badge-peach-text)",
-    },
-    {
-      label: "Active Today",
-      value: stats.activeToday.toString(),
-      icon: "🔥",
-      bg: "rgba(197,247,232,0.12)",
-      color: "var(--color-badge-mint-text)",
+      label: "Active Tickets",
+      value: stats.pendingUrgentTickets.toString(),
+      icon: "⚡",
+      bg: "rgba(197,247,232,0.15)",
+      color: "#059669", // Emerald
+      isRealtime: true,
     },
     {
       label: "Total Resources",
@@ -64,11 +50,18 @@ export default function AdminDashboardPage() {
       color: "var(--color-badge-peach-text)",
     },
     {
-      label: "Total Payments",
-      value: stats.paymentCount.toString(),
-      icon: "💳",
-      bg: "rgba(197,226,247,0.12)",
-      color: "var(--color-badge-blue-text)",
+      label: "Views Today",
+      value: analytics.viewsToday.toString(),
+      icon: "👁️",
+      bg: "rgba(216,197,247,0.12)",
+      color: "var(--color-badge-lavender-text)",
+    },
+    {
+      label: "Active Today",
+      value: stats.activeToday.toString(),
+      icon: "🔥",
+      bg: "rgba(197,247,232,0.12)",
+      color: "var(--color-badge-mint-text)",
     },
   ];
 
@@ -90,7 +83,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Metric cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {metrics.map((m) => (
           <div
             key={m.label}
@@ -150,11 +143,29 @@ export default function AdminDashboardPage() {
                       <p className="text-[13px] font-bold" style={{ color: "var(--color-navy)" }}>{u.displayName || "Anonymous"}</p>
                       <p className="text-[11px] opacity-60">{u.email}</p>
                     </div>
-                    {u.isPremium && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-lavender/10 text-lavender-text font-bold">
-                        PREMIUM
-                      </span>
-                    )}
+                    <button 
+                      onClick={async () => {
+                        const token = await (window as any).firebaseAuth.currentUser.getIdToken();
+                        const res = await fetch("/api/chat/rooms", {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${token}`
+                          },
+                          body: JSON.stringify({
+                            contextType: "direct_support",
+                            contextId: u.uid,
+                            metadata: {
+                              title: `Support: ${u.displayName || u.email.split('@')[0]}`,
+                            }
+                          })
+                        });
+                        if (res.ok) router.push("/my-chat");
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-wider hover:bg-blue-100 transition-all"
+                    >
+                      Chat
+                    </button>
                   </div>
                 ))
               )}
@@ -171,7 +182,7 @@ export default function AdminDashboardPage() {
         <h2 className="text-[18px] font-bold mb-4" style={{ fontFamily: "var(--font-display)", color: "var(--color-candy-rose)" }}>
           Admin Quick Actions
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
            <div className="p-4 rounded-xl" style={{ background: "rgba(255,255,255,0.05)" }}>
               <p className="text-[13px] font-bold mb-1">Upload Content</p>
               <p className="text-[11px] opacity-70 mb-3">Add new PYQs or notes instantly.</p>
@@ -183,23 +194,33 @@ export default function AdminDashboardPage() {
               </button>
            </div>
            <div className="p-4 rounded-xl" style={{ background: "rgba(255,255,255,0.05)" }}>
-              <p className="text-[13px] font-bold mb-1">Verify Users</p>
-              <p className="text-[11px] opacity-70 mb-3">Check premium status and streaks.</p>
+              <p className="text-[13px] font-bold mb-1">Marketplace</p>
+              <p className="text-[11px] opacity-70 mb-3">Manage PPT listings and sales.</p>
               <button
-                onClick={() => router.push("/admin/users")}
+                onClick={() => router.push("/admin/marketplace")}
                 className="text-[11px] font-bold uppercase tracking-wider text-candy-rose hover:opacity-80 transition-opacity"
               >
-                Manage Users →
+                Manage Shop →
               </button>
            </div>
            <div className="p-4 rounded-xl" style={{ background: "rgba(255,255,255,0.05)" }}>
-              <p className="text-[13px] font-bold mb-1">System Health</p>
-              <p className="text-[11px] opacity-70 mb-3">Check for missing subjects/images.</p>
+              <p className="text-[13px] font-bold mb-1">Support Hub</p>
+              <p className="text-[11px] opacity-70 mb-3">Live chat with students in real-time.</p>
               <button
-                onClick={() => router.push("/admin/content")}
+                onClick={() => router.push("/my-chat")}
                 className="text-[11px] font-bold uppercase tracking-wider text-candy-rose hover:opacity-80 transition-opacity"
               >
-                Check Content →
+                Open Chat →
+              </button>
+           </div>
+           <div className="p-4 rounded-xl" style={{ background: "rgba(255,255,255,0.05)" }}>
+              <p className="text-[13px] font-bold mb-1">Urgent Deals</p>
+              <p className="text-[11px] opacity-70 mb-3">Reply to AI-negotiated tickets.</p>
+              <button
+                onClick={() => router.push("/admin/deals")}
+                className="text-[11px] font-bold uppercase tracking-wider text-candy-rose hover:opacity-80 transition-opacity"
+              >
+                Check Tickets →
               </button>
            </div>
         </div>

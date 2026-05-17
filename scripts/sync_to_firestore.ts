@@ -50,7 +50,6 @@ async function sync() {
       url: res.url,
       courseId: res.course_id,
       subjectId: res.subject_id,
-      isPremium: res.is_premium,
       tags: res.tags || [],
       year: res.year,
       isDeleted: res.is_deleted || false,

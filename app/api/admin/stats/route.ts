@@ -35,8 +35,8 @@ export async function GET(req: NextRequest) {
     const statsPromises = [
       // 1. Total Users
       supabaseAdmin.from("users").select("id", { count: "exact", head: true }),
-      // 2. Premium Users
-      supabaseAdmin.from("users").select("id", { count: "exact", head: true }).eq("is_premium", true),
+      // 2. Marketplace Sellers
+      supabaseAdmin.from("creator_profiles").select("id", { count: "exact", head: true }),
       // 3. Total Courses
       supabaseAdmin.from("courses").select("*", { count: "exact", head: true }),
       // 4. Total Resources
@@ -72,14 +72,20 @@ export async function GET(req: NextRequest) {
       // 10. Active Today (Unique users in last 24h)
       supabaseAdmin.from("analytics_events")
         .select("user_id")
-        .gt("created_at", oneDayAgo)
+        .gt("created_at", oneDayAgo),
+      // 11. Marketplace Sales (Total Purchases)
+      supabaseAdmin.from("ppt_purchases").select("id", { count: "exact", head: true }),
+      // 12. Total Urgent Tickets
+      supabaseAdmin.from("urgent_work_tickets").select("id", { count: "exact", head: true }),
+      // 13. Pending Urgent Tickets
+      supabaseAdmin.from("urgent_work_tickets").select("id", { count: "exact", head: true }).eq("status", "pending")
     ];
 
     const results = await Promise.all(statsPromises);
     
     // Extract counts safely
     const totalUsers = results[0].count || 0;
-    const premiumUsers = results[1].count || 0;
+    const marketplaceSellers = results[1].count || 0;
     const totalCourses = results[2].count || 0;
     const totalResources = results[3].count || 0;
     const paymentCount = results[4].count || 0;
@@ -102,12 +108,19 @@ export async function GET(req: NextRequest) {
     const activeTodayRaw = results[9].data || [];
     const uniqueActiveToday = new Set(activeTodayRaw.map(e => e.user_id)).size;
 
+    const totalMarketplaceSales = results[10].count || 0;
+    const totalUrgentTickets = results[11].count || 0;
+    const pendingUrgentTickets = results[12].count || 0;
+
     return NextResponse.json({
       totalUsers,
-      premiumUsers,
+      marketplaceSellers,
       totalCourses,
       totalResources,
       paymentCount,
+      totalMarketplaceSales,
+      totalUrgentTickets,
+      pendingUrgentTickets,
       loginsToday: uniqueLogins || 0,
       activeNow: Math.max(uniqueActiveNow, 1),
       activeToday: uniqueActiveToday || 0,

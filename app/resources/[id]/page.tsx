@@ -1,282 +1,136 @@
-"use client";
-
-import { use, useState, useCallback, useEffect } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { supabaseServer } from "@/lib/supabase/server";
+import ResourceClient from "./ResourceClient";
+import JsonLd from "@/components/shared/JsonLd";
 import Breadcrumb from "@/components/shared/Breadcrumb";
-import PremiumGate from "@/components/shared/PremiumGate";
 import Badge from "@/components/ui/Badge";
-import SkeletonPulse from "@/components/ui/Skeleton";
-import ErrorState from "@/components/ui/ErrorState";
-import { useResource } from "@/hooks/useFirestore";
-import { useAuth } from "@/components/providers/AuthProvider";
 import { TAG_TO_BADGE, TAG_LABELS, RESOURCE_TYPE_LABELS } from "@/types";
-import dynamic from "next/dynamic";
-
-const ProViewer = dynamic(() => import("@/components/pdf/ProViewer"), { 
-  ssr: false, 
-  loading: () => <SkeletonPulse className="w-full rounded-2xl shadow-sm" style={{ height: "90vh", minHeight: "600px" }} /> 
-});
-const VideoPlayer = dynamic(() => import("@/components/ui/VideoPlayer"), { ssr: false, loading: () => <SkeletonPulse className="w-full rounded-2xl shadow-sm" style={{ paddingBottom: "56.25%" }} /> });
 
 interface Params {
   id: string;
 }
 
-export default function ResourceViewerPage({ params }: { params: Promise<Params> }) {
-  const { id } = use(params);
+async function getResource(id: string) {
+  const { data: resource, error } = await supabaseServer
+    .from("resources")
+    .select("*")
+    .eq("id", id)
+    .single();
 
-  const { resource, loading, error } = useResource(id);
-  const { user, isPremium, loading: authLoading } = useAuth();
-  const router = useRouter();
-  
-  const [secureUrl, setSecureUrl] = useState<string | null>(null);
-  const [accessLoading, setAccessLoading] = useState(true);
-  const [accessError, setAccessError] = useState<string | null>(null);
-
-  // Derived state
-  const isVideo = resource?.type === "video";
-  const isPdf = resource?.type === "pdf" || resource?.type === "pyq";
-  const typeName = resource ? RESOURCE_TYPE_LABELS[resource.type] : "";
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace("/login");
-    }
-  }, [user, authLoading, router]);
-
-  // Track resource view
-  useEffect(() => {
-    if (resource && !loading) {
-      const trackView = async () => {
-        const { analytics } = await import("@/lib/analytics");
-        analytics.track({ 
-          eventType: "view", 
-          resourceId: id,
-          metadata: { title: resource.title, type: resource.type }
-        });
-      };
-      trackView();
-    }
-  }, [resource, loading, id]);
-
-  // Securely fetch access URL
-  useEffect(() => {
-    const fetchAccess = async () => {
-      if (loading || authLoading || !resource) return;
-      if (!user) {
-        setAccessLoading(false);
-        return; // Handled by login redirect
-      }
-
-      // If it's a practice/important type, it doesn't need a URL
-      if (resource.type !== "pdf" && resource.type !== "video" && resource.type !== "pyq") {
-        setAccessLoading(false);
-        return;
-      }
-
-      try {
-        setAccessLoading(true);
-        const token = await user.getIdToken();
-        const res = await fetch("/api/resources/verify-access", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify({ resourceId: id })
-        });
-        
-        const data = await res.json();
-        
-        if (res.ok && data.authorized) {
-          let finalUrl = data.url;
-          
-          // Use our secure proxy for all PDF content to handle CORS and auth centrally
-          if (isPdf && finalUrl) {
-            const token = await user.getIdToken();
-            setSecureUrl(`/api/pdf?path=${encodeURIComponent(finalUrl)}&token=${token}`);
-          } else {
-            setSecureUrl(finalUrl);
-          }
-          
-          setAccessError(null);
-        } else {
-          setSecureUrl(null);
-          // If 403, we just let the PremiumGate handle the UI, don't show full page error
-          if (res.status !== 403) {
-            setAccessError(data.error || "Failed to authorize access");
-          }
-        }
-      } catch (err: any) {
-        console.error("Access error:", err);
-        setAccessError("Network error checking access");
-      } finally {
-        setAccessLoading(false);
-      }
-    };
-
-    fetchAccess();
-  }, [id, resource, user, loading, authLoading]);
-
-  if (error || accessError) {
-    return (
-      <section className="py-8 lg:py-12" style={{ background: "#F9F8F7", minHeight: "calc(100vh - 64px)" }}>
-        <div className="container-main max-w-3xl pt-20">
-          <ErrorState message={(error?.message || accessError) || "Failed to load resource"} onRetry={() => window.location.reload()} />
-        </div>
-      </section>
-    );
+  if (error || !resource) {
+    return null;
   }
 
-  if (loading || authLoading || (!user && !authLoading) || (accessLoading && resource && (resource.type === "video" || resource.type === "pdf" || resource.type === "pyq"))) {
-    return (
-      <section className="py-8 lg:py-12" style={{ background: "#F9F8F7", minHeight: "calc(100vh - 64px)" }}>
-        <div className="container-main max-w-5xl">
-          <SkeletonPulse className="h-4 w-1/3 mb-6" />
-          <div className="mt-6">
-            <div className="mb-6 flex gap-2">
-              <SkeletonPulse className="h-6 w-16 rounded-full" />
-              <SkeletonPulse className="h-6 w-20 rounded-full" />
-            </div>
-            <SkeletonPulse className="h-8 w-1/2 mb-6" />
-            <SkeletonPulse className="w-full rounded-2xl" style={{ height: "60vh", minHeight: "400px" }} />
-          </div>
-        </div>
-      </section>
-    );
-  }
+  return resource;
+}
+
+export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
+  const { id } = await params;
+  const resource = await getResource(id);
 
   if (!resource) {
-    return (
-      <section className="py-20 text-center" style={{ minHeight: "calc(100vh - 64px)" }}>
-        <span className="text-[48px] block mb-4">📭</span>
-        <h1 className="text-[28px]" style={{ fontFamily: "var(--font-display)" }}>Resource Not Found</h1>
-        <p className="text-[15px] mt-2" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
-          This resource doesn&apos;t exist or has been removed.
-        </p>
-        <Link href="/courses" className="btn btn-accent mt-6 text-[13px]">Browse Courses</Link>
-      </section>
-    );
+    return {
+      title: "Resource Not Found | Cubepharm",
+    };
   }
 
+  const typeName = (RESOURCE_TYPE_LABELS as any)[resource.type] || "Resource";
+
+  return {
+    title: `${resource.title} | ${typeName} | Cubepharm`,
+    description: resource.description || `Access pharmacy study material: ${resource.title}. Optimized for exam preparation. Built for B.Pharm, M.Pharm, and D.Pharm students.`,
+    openGraph: {
+      title: `${resource.title} | Cubepharm`,
+      description: resource.description || `Study ${resource.title} on Cubepharm.`,
+      type: "article",
+      images: [
+        {
+          url: resource.previewImage || "/og-image.png",
+          alt: resource.title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${resource.title} | Cubepharm`,
+      description: resource.description || `Study ${resource.title} on Cubepharm.`,
+      images: [resource.previewImage || "/og-image.png"],
+    },
+  };
+}
+
+export default async function ResourceViewerPage({ params }: { params: Promise<Params> }) {
+  const { id } = await params;
+  const resource = await getResource(id);
+
+  if (!resource) {
+    notFound();
+  }
+
+  const isVideo = resource.type === "video";
+  const isPdf = resource.type === "pdf" || resource.type === "pyq";
+  const typeName = (RESOURCE_TYPE_LABELS as any)[resource.type] || "";
+
+  const jsonLdData = {
+    "@type": isVideo ? "VideoObject" : "LearningResource",
+    "name": resource.title,
+    "description": resource.description || `Academic pharmacy study material: ${resource.title}. Optimized for exam preparation.`,
+    "learningResourceType": typeName,
+    "educationalLevel": "B.Pharm / M.Pharm",
+    "provider": {
+      "@type": "Organization",
+      "name": "Cubepharm",
+      "url": "https://cubepharm.com"
+    },
+    "inLanguage": "en",
+    "author": {
+      "@type": "Organization",
+      "name": "Cubepharm Content Team"
+    }
+  };
+
   return (
-    <section className="py-8 lg:py-12" style={{ background: "#F9F8F7", minHeight: "calc(100vh - 64px)" }}>
+    <article className="py-8 lg:py-12" style={{ background: "#F9F8F7", minHeight: "calc(100vh - 64px)" }}>
+      <JsonLd data={jsonLdData} />
+      
       <div className={`container-main ${isPdf ? 'max-w-7xl' : 'max-w-5xl'}`}>
-        <Breadcrumb
-          items={[
-            { label: "Home", href: "/" },
-            { label: "Courses", href: "/courses" },
-            { label: resource.title },
-          ]}
-        />
+        <header>
+          <Breadcrumb
+            items={[
+              { label: "Home", href: "/" },
+              { label: "Resources", href: "/resources" },
+              { label: resource.title },
+            ]}
+          />
 
-        <div className="mt-8 viewer-layout-fix">
-          {/* Resource Title & metadata block */}
-          <div className="flex flex-col gap-4 flex-shrink-0 relative z-[1]">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={resource.type === "pyq" ? "rose" : resource.type === "pdf" ? "lavender" : resource.type === "video" ? "peach" : "mint"}>
-                {typeName}
-              </Badge>
-              {resource.tags.map((tag) => (
-                <Badge key={tag} variant={TAG_TO_BADGE[tag]}>
-                  {TAG_LABELS[tag]}
+          <div className="mt-8">
+            <div className="flex flex-col gap-4 flex-shrink-0 relative z-[1]">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={resource.type === "pyq" ? "rose" : resource.type === "pdf" ? "lavender" : resource.type === "video" ? "peach" : "mint"}>
+                  {typeName}
                 </Badge>
-              ))}
-              {resource.year && (
-                <span
-                  className="text-[11px] font-medium px-2 py-0.5 rounded-full"
-                  style={{
-                    background: "rgba(26,31,60,0.06)",
-                    color: "var(--color-mid)",
-                    fontFamily: "var(--font-mono)",
-                  }}
-                >
-                  {resource.year}
-                </span>
-              )}
-              {resource.isPremium && (
-                <span
-                  className="text-[10px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1"
-                  style={{
-                    background: "rgba(247,197,216,0.15)",
-                    color: "var(--color-badge-rose-text)",
-                    fontFamily: "var(--font-body)",
-                  }}
-                >
-                  👑 Premium
-                </span>
-              )}
-            </div>
-
-            <h1 className="text-[24px] sm:text-[32px] m-0" style={{ fontFamily: "var(--font-display)", lineHeight: "1.2" }}>
-              {resource.title}
-            </h1>
-          </div>
-
-          {/* Content area */}
-          <div className="relative z-0">
-            <PremiumGate 
-              isPremium={resource.isPremium} 
-              userHasPremium={isPremium}
-            >
-            {isVideo && secureUrl && (
-              <VideoPlayer url={secureUrl} title={resource.title} />
-            )}
-
-            {isPdf && secureUrl && (
-              <ProViewer 
-                url={secureUrl} 
-                title={resource.title} 
-                resourceId={resource.id}
-                isPremiumResource={resource.isPremium}
-              />
-            )}
-
-            {!isVideo && !isPdf && (
-              <div
-                className="rounded-2xl p-8 text-center"
-                style={{ background: "rgba(26,31,60,0.02)", border: "0.5px solid #e0e0e0" }}
-              >
-                <span className="text-[48px] block mb-4">
-                  {resource.type === "important" ? "⭐" : "🧠"}
-                </span>
-                <h3 className="text-[18px] font-bold mb-2" style={{ fontFamily: "var(--font-display)" }}>
-                  {resource.type === "important" ? "Important Questions" : "Practice Questions"}
-                </h3>
-                <p className="text-[14px] max-w-md mx-auto mb-6" style={{ color: "var(--color-mid)", fontFamily: "var(--font-body)" }}>
-                  {resource.type === "important"
-                    ? "Curated high-yield questions marked by frequency analysis."
-                    : "Answer questions in flashcard format with reveal and bookmark features."}
-                </p>
-                {resource.type === "practice" && (
-                  <Link
-                    href={`/subjects/${resource.subjectId}/practice`}
-                    className="btn btn-accent text-[13px]"
-                  >
-                    Start Practice →
-                  </Link>
+                {(resource.tags || []).map((tag: string) => (
+                  <Badge key={tag} variant={(TAG_TO_BADGE as any)[tag] || "slate"}>
+                    {(TAG_LABELS as any)[tag] || tag}
+                  </Badge>
+                ))}
+                {resource.year && (
+                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-mono">
+                    {resource.year}
+                  </span>
                 )}
               </div>
-            )}
-          </PremiumGate>
-        </div>
 
-          {/* Back link */}
-          <div className="mt-8">
-            <Link
-              href={`/subjects/${resource.subjectId}`}
-              className="text-[13px] font-medium flex items-center gap-1.5 transition-all hover:gap-2.5"
-              style={{ color: "var(--color-candy-rose)", fontFamily: "var(--font-body)" }}
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M11 7H3M6 4L3 7l3 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Back to Subject
-            </Link>
+              <h1 className="text-[24px] sm:text-[32px] m-0" style={{ fontFamily: "var(--font-display)", lineHeight: "1.2" }}>
+                {resource.title}
+              </h1>
+            </div>
           </div>
-        </div>
+        </header>
+
+        <ResourceClient resource={resource} id={id} />
       </div>
-    </section>
+    </article>
   );
 }

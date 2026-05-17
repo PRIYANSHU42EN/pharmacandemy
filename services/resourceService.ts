@@ -66,7 +66,7 @@ export class ResourceService {
   }
 
   /**
-   * Verifies if a user has access to a specific resource
+   * Verifies if a user has access to a specific resource (All resources are now free)
    */
   static async verifyAccess(userId: string, resourceId: string): Promise<ResourceAccess> {
     if (!supabaseAdmin) {
@@ -85,49 +85,7 @@ export class ResourceService {
         return { authorized: false, error: "Resource not found" };
       }
 
-      // 2. If not premium, grant access
-      if (!resource.is_premium) {
-        return {
-          authorized: true,
-          url: await this.getSecureUrl(resource.url),
-          type: resource.type,
-          title: resource.title
-        };
-      }
-
-      // 3. Resource IS premium — check user profile
-      const { data: user, error: userError } = await supabaseAdmin
-        .from("users")
-        .select("id, role, is_premium, premium_expires_at")
-        .eq("id", userId)
-        .single();
-
-      if (userError || !user) {
-        return { authorized: false, error: "User profile not found" };
-      }
-
-      // 4. Admin bypass
-      const isAdmin = ["admin", "super-admin", "content-admin"].includes(user.role || "");
-      if (isAdmin) {
-        return {
-          authorized: true,
-          url: await this.getSecureUrl(resource.url),
-          type: resource.type,
-          title: resource.title
-        };
-      }
-
-      // 5. Check premium status
-      if (!user.is_premium || !user.premium_expires_at) {
-        return { authorized: false, error: "Premium subscription required" };
-      }
-
-      const premiumExpiry = new Date(user.premium_expires_at);
-      if (premiumExpiry <= new Date()) {
-        return { authorized: false, error: "Premium subscription expired" };
-      }
-
-      // 6. Access granted
+      // Universal access for all authenticated users
       return {
         authorized: true,
         url: await this.getSecureUrl(resource.url),

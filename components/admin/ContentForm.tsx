@@ -19,8 +19,6 @@ interface ContentFormProps {
   setCourseId: (val: string) => void;
   subjectId: string;
   setSubjectId: (val: string) => void;
-  isPremium: boolean;
-  setIsPremium: (val: boolean) => void;
   isSaving: boolean;
   errors: Record<string, string>;
   setErrors: (val: any) => void;
@@ -47,7 +45,6 @@ const ContentForm = memo(({
   preview, setPreview,
   courseId, setCourseId,
   subjectId, setSubjectId,
-  isPremium, setIsPremium,
   isSaving,
   errors, setErrors,
   successMsg,
@@ -110,17 +107,6 @@ const ContentForm = memo(({
                   >
                     {RESOURCE_TYPES.map(t => <option key={t.value} value={t.value} className="bg-black">{t.label}</option>)}
                   </select>
-                </div>
-              )}
-              {activeTab !== "courses" && (
-                <div className={activeTab === "subjects" ? "col-span-2" : ""}>
-                  <label className="block text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-2">Access Level</label>
-                  <div 
-                    onClick={() => setIsPremium(!isPremium)}
-                    className={`h-[46px] rounded-xl border flex items-center justify-center cursor-pointer transition-all ${isPremium ? 'border-candy-rose bg-candy-rose/10 text-candy-rose' : 'border-white/10 bg-white/5 text-gray-500'}`}
-                  >
-                    <span className="text-[13px] font-bold">{isPremium ? '👑 PREMIUM' : 'FREE ACCESS'}</span>
-                  </div>
                 </div>
               )}
             </div>

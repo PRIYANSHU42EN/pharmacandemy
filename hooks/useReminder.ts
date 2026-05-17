@@ -14,7 +14,7 @@ export function useReminder(user: any, userProfile: any) {
       try {
         await Notification.requestPermission();
       } catch (e) {
-        console.error("[Reminder] Permission request failed:", e);
+        // Permission request ignored or failed
       }
     }
   }, []);
@@ -28,7 +28,7 @@ export function useReminder(user: any, userProfile: any) {
         icon: "/favicon.ico",
       });
     } catch (e) {
-      console.error("[Reminder] Notification failed:", e);
+      // Notification failed
     }
   }, []);
 

@@ -6,6 +6,7 @@ import { NAV_LINKS } from "@/constants";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/AuthProvider";
 import StreakWidget from "@/components/shared/StreakWidget";
+import { Zap, MessageSquare } from "lucide-react";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -18,6 +19,43 @@ export default function Navbar() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchUnread = async () => {
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch("/api/chat/unread-count", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          let errorMsg = 'Failed to fetch unread count';
+          try {
+            const data = JSON.parse(text);
+            errorMsg = data.error || errorMsg;
+          } catch (e) {
+            // Not JSON
+          }
+          throw new Error(errorMsg);
+        }
+
+        const data = await res.json();
+        setUnreadCount(data.count || 0);
+      } catch (err) {
+
+      }
+    };
+
+    fetchUnread();
+    // Refresh every minute
+    const interval = setInterval(fetchUnread, 60000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Close mobile menu on route change / resize
   useEffect(() => {
@@ -134,6 +172,32 @@ export default function Navbar() {
                 className="hidden sm:inline-flex"
               />
 
+
+
+                <Link
+                  href="/my-chat"
+                  className="text-[12px] font-bold px-5 py-[7px] rounded-[20px] transition-all duration-150 hover:scale-[1.03] flex items-center gap-2 relative"
+                  style={{
+                    fontFamily: "var(--font-body)",
+                    color: "var(--color-cream)",
+                    background: "rgba(255, 255, 255, 0.08)",
+                    border: "0.5px solid rgba(255, 255, 255, 0.15)",
+                  }}
+                >
+                  <div className="relative">
+                    <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 bg-candy-rose rounded-full animate-pulse border border-navy shadow-sm" />
+                    )}
+                  </div>
+                  {isAdmin ? "Admin Chat" : "My Chat"}
+                  {unreadCount > 0 && (
+                    <span className="ml-1 text-[10px] font-bold bg-candy-rose/20 text-candy-rose px-1.5 rounded-md">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Link>
+
               <Link
                 href="/profile"
                 className="text-[12px] font-medium px-5 py-[7px] rounded-[20px] transition-all duration-150 hover:scale-[1.03]"
@@ -190,6 +254,27 @@ export default function Navbar() {
         style={{ backgroundColor: "var(--color-charcoal)" }}
       >
         <nav className="container-main py-4 flex flex-col gap-1">
+          {user && (
+            <Link
+              href="/my-chat"
+              className="flex items-center gap-3 py-4 px-4 mb-2 rounded-xl bg-blue-600/10 border border-blue-500/20 transition-all duration-150"
+              style={{
+                fontFamily: "var(--font-body)",
+                color: "var(--color-cream)",
+              }}
+              onClick={() => setIsMobileOpen(false)}
+            >
+              <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-lg">
+                <MessageSquare size={18} />
+              </div>
+              <span className="text-[16px] font-bold">My Chat</span>
+              {unreadCount > 0 && (
+                <span className="ml-auto bg-candy-rose text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-lg">
+                  {unreadCount} NEW
+                </span>
+              )}
+            </Link>
+          )}
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}

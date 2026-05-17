@@ -37,7 +37,6 @@ export async function GET(req: NextRequest) {
         name: data.name,
         description: data.description,
         coverImageUrl: data.cover_image_url,
-        isPremium: data.is_premium,
         resourceCount: data.resource_count,
         createdAt: data.created_at,
         updatedAt: data.updated_at
@@ -79,7 +78,6 @@ export async function GET(req: NextRequest) {
           name: s.name,
           description: s.description,
           coverImageUrl: s.cover_image_url,
-          isPremium: s.is_premium,
           resourceCount: s.resource_count,
           createdAt: s.created_at,
           updatedAt: s.updated_at

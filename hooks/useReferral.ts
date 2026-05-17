@@ -13,7 +13,6 @@ export function useReferral() {
 
   useEffect(() => {
     if (refCode) {
-      console.log(`[Referral] 🎯 Captured referral code from URL: ${refCode}`);
       // Store in localStorage for later use during signup
       localStorage.setItem("refCode", refCode.toUpperCase());
     }

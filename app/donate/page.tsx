@@ -100,7 +100,7 @@ export default function DonatePage() {
               setErrorMsg(verifyData.error || "Donation verification failed.");
             }
           } catch (err) {
-            console.error("[Donation] Verification exception:", err);
+            // console.("[Donation] Verification exception:", err);
             setErrorMsg("Critical validation error. Contact support.");
           } finally {
             setLoading(false);
@@ -122,7 +122,7 @@ export default function DonatePage() {
       rzp1.open();
 
     } catch (error: any) {
-      console.error("[Donation] Setup error:", error);
+      // console.("[Donation] Setup error:", error);
       setErrorMsg(error.message || "Something went wrong.");
       setLoading(false);
     }

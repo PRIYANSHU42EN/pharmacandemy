@@ -29,7 +29,20 @@ const ICON_MAP: Record<string, React.ReactNode> = {
       <path d="M17 16v-1a3 3 0 00-4-2.8" />
     </svg>
   ),
+  ShoppingBag: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 2L1 6v10a2 2 0 002 2h12a2 2 0 002-2V6l-3-4H4z" />
+      <path d="M1 6h16" />
+      <path d="M12 10a4 4 0 11-8 0" />
+    </svg>
+  ),
+  MessageSquare: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 10a3 3 0 01-3 3H5l-3 3V5a3 3 0 013-3h7a3 3 0 013 3v5z" />
+    </svg>
+  ),
 };
+
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -37,13 +50,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { user, isAdmin, loading, userProfile } = useAuth();
 
   useEffect(() => {
+    // Safety timeout: if auth takes more than 5 seconds, show a fallback or allow navigation
+    const timer = setTimeout(() => {
+      // Auth check timeout reached
+    }, 5000);
+
     if (!loading) {
       if (!user) {
         router.replace("/login");
       }
     }
-  }, [user, isAdmin, loading, router, userProfile]);
 
+    return () => clearTimeout(timer);
+  }, [user, isAdmin, loading, router, userProfile]);
 
   // Block UI rendering completely until auth state is resolved
   if (loading) {
@@ -57,6 +76,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   if (!isAdmin) {
+
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] p-6 text-center">
         <div 

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { chatSupabaseAdmin } from "@/lib/supabase/chatAdmin";
 import { calculateStreak } from "@/lib/streak";
 import { applyReferral, generateReferralCode } from "@/lib/referral";
+import logger from "@/lib/logger";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 /**
  * POST /api/auth/sync
@@ -11,6 +14,14 @@ import { applyReferral, generateReferralCode } from "@/lib/referral";
  */
 export async function POST(req: NextRequest) {
   try {
+    // 0. Rate Limiting
+    const rateLimitResponse = await applyRateLimit(req, {
+      maxRequests: 5,
+      windowMs: 60000,
+      errorMessage: "Too many sync attempts. Please wait a minute."
+    });
+    if (rateLimitResponse) return rateLimitResponse;
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -20,7 +31,7 @@ export async function POST(req: NextRequest) {
     
     // 1. Critical Initialization Check
     if (!adminAuth || !adminDb || !supabaseAdmin) {
-      console.error("[Sync] ❌ Critical infrastructure missing (Firebase/Supabase Admin)");
+      logger.error("[Sync] ❌ Critical infrastructure missing (Firebase/Supabase Admin)");
       return NextResponse.json({ error: "Configuration error" }, { status: 500 });
     }
 
@@ -37,7 +48,7 @@ export async function POST(req: NextRequest) {
     const userName = name || displayName || email?.split("@")[0] || "Student";
     const photoURL = picture || null;
     
-    console.log(`[Sync] 🔄 High-speed sync for: ${email} (${uid})`);
+    logger.info({ uid }, `[Sync] 🔄 High-speed sync initiated`);
 
     // 3. Parallel Read (Supabase is Source of Truth)
     // We race Supabase against a tight timeout. Firestore is the secondary fallback.
@@ -57,18 +68,22 @@ export async function POST(req: NextRequest) {
       const firestoreSnap = await adminDb.collection("users").doc(uid).get().catch(() => null);
       if (firestoreSnap?.exists) {
         dbUser = firestoreSnap.data();
-        console.log(`[Sync] 📦 Firestore fallback used for ${uid}`);
+        logger.info({ uid }, `[Sync] Packaged Firestore fallback used`);
       }
     }
 
     // 5. Data Consolidation
-    const isSuperAdmin = email === "smashgaming5488@gmail.com" || email === "smasgaming5488@gmail.com";
+    const isSuperAdmin = email === "smashgaming5488@gmail.com";
     const userRole = isSuperAdmin ? "admin" : (dbUser?.role || "user");
-    const isPremium = dbUser ? (dbUser.is_premium ?? dbUser.isPremium ?? false) : false;
-    const premiumExpiry = dbUser?.premium_expires_at || dbUser?.premiumExpiry || null;
     
     let referralCode = dbUser?.referral_code || dbUser?.referralCode;
     if (!referralCode) referralCode = generateReferralCode();
+
+    let username = dbUser?.username || null;
+    if (!username) {
+      const base = (email?.split("@")[0] || userName).toLowerCase().replace(/\./g, "").replace(/\s/g, "");
+      username = `${base}${uid.substring(0, 4)}`.toLowerCase();
+    }
 
     const currentStreak = dbUser?.streak || 0;
     const prevLastActive = dbUser?.last_active_date || dbUser?.lastActiveDate || null;
@@ -81,9 +96,8 @@ export async function POST(req: NextRequest) {
       uid,
       email: email || "",
       displayName: userName,
+      username,
       role: userRole,
-      isPremium,
-      premiumExpiry,
       streak: newStreak,
       lastActiveDate,
       streakUpdated: isNewDay,
@@ -93,18 +107,33 @@ export async function POST(req: NextRequest) {
     const updatePromises = [];
 
     // Atomic Supabase Upsert
-    updatePromises.push(supabaseAdmin.from("users").upsert({
+    const upsertData = {
       id: uid,
       email: email || "",
       name: userName,
+      display_name: userName,
+      username,
+      photo_url: photoURL,
       role: userRole,
-      is_premium: isPremium,
-      premium_expires_at: premiumExpiry,
       streak: newStreak,
       last_active_date: lastActiveDate,
       referral_code: referralCode,
       updated_at: new Date().toISOString()
-    }));
+    };
+
+    updatePromises.push(supabaseAdmin.from("users").upsert(upsertData));
+
+    // Dual-Sync to Chat Database if configured
+    if (chatSupabaseAdmin && process.env.NEXT_PUBLIC_CHAT_SUPABASE_URL !== process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      // We omit 'username' here because the secondary DB might not have the column yet
+      // and we cannot easily run migrations on it via this environment.
+      const chatUpsertData = { ...upsertData };
+      delete (chatUpsertData as any).username;
+
+      Promise.resolve(chatSupabaseAdmin.from("users").upsert(chatUpsertData)).then(({ error }) => {
+        if (error) logger.warn({ uid }, "[Sync] ⚠️ Chat DB Sync failed");
+      }).catch(e => logger.warn({ uid, error: e }, "[Sync] ⚠️ Chat DB Sync exception"));
+    }
 
     // Firestore Sync
     updatePromises.push(adminDb.collection("users").doc(uid).set({
@@ -113,10 +142,9 @@ export async function POST(req: NextRequest) {
     }, { merge: true }));
 
     // Custom Claims (Security)
-    if (dbUser?.role !== userRole || dbUser?.is_premium !== isPremium) {
+    if (dbUser?.role !== userRole) {
       updatePromises.push(adminAuth.setCustomUserClaims(uid, {
-        role: userRole,
-        isPremium: isPremium
+        role: userRole
       }));
     }
 
@@ -133,7 +161,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, profile });
 
   } catch (error: any) {
-    console.error("[Sync] ❌ Fatal Error:", error.message);
+    logger.error({ error: error.message }, "[Sync] ❌ Fatal Error during sync");
     return NextResponse.json({ error: "Sync failed" }, { status: 500 });
   }
 }

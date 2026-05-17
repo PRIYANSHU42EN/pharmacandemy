@@ -8,7 +8,7 @@ import Badge from "@/components/ui/Badge";
 import SkeletonPulse, { SkeletonText } from "@/components/ui/Skeleton";
 
 export default function DashboardPage() {
-  const { user, userProfile, loading, isPremium } = useAuth();
+  const { user, userProfile, loading } = useAuth();
   const router = useRouter();
 
   // Route Protection
@@ -70,16 +70,6 @@ export default function DashboardPage() {
                  Day Streak
               </span>
             </div>
-            {!isPremium && (
-              <Link href="/upgrade" className="flex items-center">
-                <Badge variant="rose">Upgrade to Premium</Badge>
-              </Link>
-            )}
-            {isPremium && (
-              <div className="flex items-center">
-                <Badge variant="mint">Premium Active</Badge>
-              </div>
-            )}
           </div>
         </div>
 

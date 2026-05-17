@@ -7,7 +7,7 @@ const footerLinks = {
   Platform: [
     { label: "Courses", href: "/courses" },
     { label: "Practice Mode", href: "/courses" },
-    { label: "Premium Access", href: "/upgrade" },
+    { label: "Marketplace", href: "/marketplace" },
   ],
   Categories: [
     { label: "B.Pharm Resources", href: "/courses" },
@@ -55,7 +55,7 @@ export default function Footer() {
               </span>
             </div>
             <p className="text-[14px] max-w-sm" style={{ color: "rgba(253,252,251,0.5)", fontFamily: "var(--font-body)" }}>
-               The ultimate learning platform for Pharmacy students in India. Access structured resources, PYQs, and premium notes anytime, anywhere.
+               The ultimate learning platform for Pharmacy students in India. Access structured resources, PYQs, and organized notes anytime, anywhere.
             </p>
           </div>
 

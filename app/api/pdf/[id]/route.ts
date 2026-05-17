@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyFirebaseToken } from "@/lib/auth-utils";
 
 /**
  * GET /api/pdf/[id]
  * Proxies Google Drive PDF files to bypass CORS restrictions with streaming.
+ * Securely verifies the user's Firebase Auth token.
  */
 export async function GET(
   req: NextRequest,
@@ -15,10 +17,25 @@ export async function GET(
       return NextResponse.json({ error: "File ID is required" }, { status: 400 });
     }
 
+    // 1. Authenticate user via Firebase (support Authorization header or query parameter)
+    const { searchParams } = new URL(req.url);
+    const queryToken = searchParams.get("token");
+    const authHeader = req.headers.get("Authorization");
+    const idToken = authHeader?.startsWith("Bearer ") ? authHeader.replace("Bearer ", "") : queryToken;
+
+    if (!idToken) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
+    const decodedToken = await verifyFirebaseToken(idToken);
+    if (!decodedToken) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
     // Convert to Google Drive direct download link
     const driveUrl = `https://drive.google.com/uc?export=download&id=${id}`;
 
-    console.log(`[PDF Proxy] Streaming PDF from Google Drive: ${id}`);
+    console.log(`[PDF Proxy] Streaming PDF from Google Drive for user ${decodedToken.uid}: ${id}`);
 
     const response = await fetch(driveUrl, {
       headers: {
@@ -61,3 +78,4 @@ export async function GET(
     );
   }
 }
+

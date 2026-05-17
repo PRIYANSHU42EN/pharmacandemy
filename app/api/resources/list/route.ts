@@ -37,7 +37,6 @@ export async function GET(req: NextRequest) {
         url: "", // SECURITY: URL hidden from list API
         subjectId: data.subject_id,
         courseId: data.course_id,
-        isPremium: data.is_premium,
         previewImageUrl: data.preview_image_url,
         tags: data.tags || [],
         year: data.year,
@@ -72,7 +71,6 @@ export async function GET(req: NextRequest) {
           url: "", // SECURITY: URL hidden from list API
           subjectId: r.subject_id,
           courseId: r.course_id,
-          isPremium: r.is_premium,
           previewImageUrl: r.preview_image_url,
           tags: r.tags || [],
           year: r.year,

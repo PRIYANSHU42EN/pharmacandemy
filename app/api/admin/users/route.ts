@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from('users')
-      .select('id, email, name, role, is_premium, premium_expires_at, created_at, updated_at')
+      .select('id, email, name, role, created_at, updated_at')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     return NextResponse.json(data);
   } catch (error: any) {
     console.error("[API/Admin/Users] GET Error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -102,19 +102,15 @@ export async function PATCH(request: Request) {
     try {
       const claims: any = {
         role: data.role,
-        isPremium: data.is_premium,
-        emailVerified: true // Assume verified if admin is touching it, or keep existing?
+        emailVerified: true
       };
       
-      // Fetch existing claims to preserve emailVerified if needed, or just set it
-      // For now, let's just set the essential role and premium status
       await adminAuth.setCustomUserClaims(uid, claims);
       
       // Also update Firestore for total consistency
       const { adminDb } = await import("@/lib/firebase/admin");
       await adminDb.collection("users").doc(uid).update({
         role: data.role,
-        isPremium: data.is_premium,
         updatedAt: new Date().toISOString()
       });
     } catch (claimErr: any) {
@@ -124,6 +120,6 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ success: true, user: data });
   } catch (error: any) {
     console.error("[API/Admin/Users] Error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

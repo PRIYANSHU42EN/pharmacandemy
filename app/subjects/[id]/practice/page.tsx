@@ -15,7 +15,7 @@ interface Params {
 export default function PracticeModePage({ params }: { params: Promise<Params> }) {
   const { id } = use(params);
   const { subject, loading: subjectLoading } = useSubject(id);
-  const { isPremium: userHasPremium, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [bookmarked, setBookmarked] = useState<Set<number>>(new Set());
@@ -149,7 +149,7 @@ export default function PracticeModePage({ params }: { params: Promise<Params> }
           </div>
         </div>
 
-        <PremiumGate isPremium={subject?.isPremium ?? false} userHasPremium={userHasPremium}>
+        <PremiumGate>
           <PracticeCard
             question={questions[currentIndex].question}
             answer={questions[currentIndex].answer}

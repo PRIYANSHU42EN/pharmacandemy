@@ -10,7 +10,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isLockedOut, setIsLockedOut] = useState(false);
   const { user, loading: authLoading, loginWithEmail, loginWithGoogle } = useAuth();
   const router = useRouter();
 
@@ -21,62 +20,16 @@ export default function LoginPage() {
     }
   }, [user, authLoading, router]);
 
-  const checkRateLimit = () => {
-    if (typeof window === "undefined") return true;
-    const attemptsStr = localStorage.getItem("loginAttempts");
-    if (!attemptsStr) return true;
-    const attempts = JSON.parse(attemptsStr);
-    const now = Date.now();
-    const fifteenMins = 15 * 60 * 1000;
-    
-    const recentAttempts = attempts.filter((time: number) => now - time < fifteenMins);
-    localStorage.setItem("loginAttempts", JSON.stringify(recentAttempts));
-    
-    if (recentAttempts.length >= 5) {
-      const oldest = recentAttempts[0];
-      const waitTime = Math.ceil((fifteenMins - (now - oldest)) / 60000);
-      return `Too many login attempts. Please try again in ${waitTime} minute${waitTime !== 1 ? 's' : ''}.`;
-    }
-    return true;
-  };
-
-  const recordFailedAttempt = () => {
-    if (typeof window === "undefined") return;
-    const attemptsStr = localStorage.getItem("loginAttempts");
-    const attempts = attemptsStr ? JSON.parse(attemptsStr) : [];
-    const now = Date.now();
-    const fifteenMins = 15 * 60 * 1000;
-    const recentAttempts = attempts.filter((time: number) => now - time < fifteenMins);
-    recentAttempts.push(now);
-    localStorage.setItem("loginAttempts", JSON.stringify(recentAttempts));
-  };
-
   const handleEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    const rateLimitCheck = checkRateLimit();
-    if (rateLimitCheck !== true) {
-      setError(rateLimitCheck);
-      setIsLockedOut(true);
-      return;
-    }
-
     if (loading) return; // Prevent double submission
     setError("");
     setLoading(true);
     try {
       await loginWithEmail(email, password);
-      // Clear attempts on success
-      if (typeof window !== "undefined") localStorage.removeItem("loginAttempts");
       router.push("/dashboard");
     } catch (err: unknown) {
-      recordFailedAttempt();
-      const newCheck = checkRateLimit();
-      if (newCheck !== true) {
-        setError(newCheck);
-        setIsLockedOut(true);
-      } else {
-        setError(err instanceof Error ? err.message : "Login failed. Please try again.");
-      }
+      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -178,10 +131,9 @@ export default function LoginPage() {
           </button>
         )}
 
-        {/* Google Sign In */}
         <button
           onClick={handleGoogle}
-          disabled={loading || isLockedOut}
+          disabled={loading}
           className="w-full flex items-center justify-center gap-3 py-3 rounded-xl text-[14px] font-medium mb-4 transition-all hover:shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
           style={{
             background: "rgba(26,31,60,0.03)",
@@ -279,9 +231,9 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading || isLockedOut}
+            disabled={loading}
             className="btn btn-accent w-full justify-center text-[14px] py-3 mt-2"
-            style={{ opacity: loading || isLockedOut ? 0.7 : 1, cursor: isLockedOut ? "not-allowed" : undefined }}
+            style={{ opacity: loading ? 0.7 : 1 }}
           >
             {loading ? "Signing in…" : "Sign In"}
           </button>

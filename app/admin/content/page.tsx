@@ -19,7 +19,6 @@ export default function AdminContentPage() {
   const [preview, setPreview] = useState("");
   const [courseId, setCourseId] = useState("");
   const [subjectId, setSubjectId] = useState("");
-  const [isPremium, setIsPremium] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMsg, setSuccessMsg] = useState("");
@@ -43,7 +42,6 @@ export default function AdminContentPage() {
     setUrl(item.url || item.code || "");
     setCourseId(item.courseId || "");
     setSubjectId(item.subjectId || "");
-    setIsPremium(item.isPremium || false);
     setErrors({});
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
@@ -56,7 +54,6 @@ export default function AdminContentPage() {
     setUrl("");
     setCourseId("");
     setSubjectId("");
-    setIsPremium(false);
     setErrors({});
   }, []);
 
@@ -96,7 +93,6 @@ export default function AdminContentPage() {
           url: url.trim(),
           course_id: courseId || null,
           subject_id: subjectId,
-          is_premium: isPremium,
           is_deleted: false,
           updated_at: new Date().toISOString()
         };
@@ -105,7 +101,6 @@ export default function AdminContentPage() {
           name: title.trim(),
           course_id: courseId,
           semester_number: parseInt(description) || 0,
-          is_premium: isPremium,
           updated_at: new Date().toISOString()
         };
       } else if (activeTab === "courses") {
@@ -152,7 +147,7 @@ export default function AdminContentPage() {
     } finally {
       setIsSaving(false);
     }
-  }, [isAdmin, activeTab, title, subjectId, url, courseId, description, resType, isPremium, editingId]);
+  }, [isAdmin, activeTab, title, subjectId, url, courseId, description, resType, editingId]);
 
   const handleUpload = useCallback(async () => {
     if (!selectedFile) return;
@@ -219,7 +214,6 @@ export default function AdminContentPage() {
         preview={preview} setPreview={setPreview}
         courseId={courseId} setCourseId={setCourseId}
         subjectId={subjectId} setSubjectId={setSubjectId}
-        isPremium={isPremium} setIsPremium={setIsPremium}
         isSaving={isSaving}
         errors={errors} setErrors={setErrors}
         successMsg={successMsg}

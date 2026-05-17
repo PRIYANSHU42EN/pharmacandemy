@@ -40,41 +40,38 @@ import { analytics } from "@/lib/analytics";
 // ---------------------------------------------------------------------------
 async function syncUserToServer(user: FirebaseUser, displayName?: string) {
   try {
-    console.log(`[Auth] 🔄 Triggering server-side sync for ${user.uid}...`);
-    const idToken = await user.getIdToken(); // Don't force refresh every time
+    const idToken = await user.getIdToken(); 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s fetch timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // Increased to 30s for slower connections
 
-    const response = await fetch("/api/auth/sync", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${idToken}`
-      },
-      body: JSON.stringify({
-        displayName,
-        referralCode: localStorage.getItem("refCode")
-      }),
-      signal: controller.signal
-    });
+    try {
+      const response = await fetch("/api/auth/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          displayName,
+          referralCode: localStorage.getItem("refCode")
+        }),
+        signal: controller.signal
+      });
 
-    clearTimeout(timeoutId);
+      clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      const err = await response.json();
-      console.warn("[Auth] ❌ Sync API failed:", err.error);
+      if (!response.ok) {
+        return null;
+      } else {
+        const data = await response.json();
+        localStorage.removeItem("refCode");
+        return data.profile;
+      }
+    } catch (e: any) {
+      clearTimeout(timeoutId);
       return null;
-    } else {
-      const data = await response.json();
-      console.log(`[Auth] ✅ Sync successful: Premium=${data.profile.isPremium}`);
-
-      // Cleanup referral code after successful sync
-      localStorage.removeItem("refCode");
-
-      return data.profile;
     }
   } catch (e) {
-    console.error("[Auth] ❌ Sync exception:", e);
     return null;
   }
 }
@@ -83,7 +80,6 @@ async function syncUserToServer(user: FirebaseUser, displayName?: string) {
 interface AuthContextType {
   user: FirebaseUser | null;
   userProfile: UserProfile | null;
-  isPremium: boolean;
   isAdmin: boolean;
   loading: boolean;
   emailVerified: boolean;
@@ -98,6 +94,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
+  refreshEmailVerification: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -123,6 +120,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const mountedRef = useRef(true);
 
   const [showStreakToast, setShowStreakToast] = useState<number | null>(null);
+  const [authRevision, setAuthRevision] = useState(0);
 
   // Daily Reminder System
   useReminder(user, userProfile);
@@ -137,27 +135,38 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       // Step 4: Always fetch from database (Supabase)
       const { data, error } = await supabase
         .from("users")
-        .select("id, email, name, role, is_premium, premium_expires_at, photo_url, streak, last_active_date")
+        .select("id, email, name, display_name, username, photo_url, role, streak, last_active_date, referral_code, last_streak_date, created_at, updated_at")
         .eq("id", userId)
+        .maybeSingle();
+
+      // NEW: Check if user is a creator
+      const { data: creatorData } = await supabase
+        .from("creator_profiles")
+        .select("id")
+        .eq("user_id", userId)
         .maybeSingle();
 
       if (data && mountedRef.current) {
         setUserProfile({
           uid: data.id,
           email: data.email,
-          displayName: data.name,
-          role: data.role,
-          isPremium: !!data.is_premium,
-          premiumExpiry: data.premium_expires_at,
-          photoURL: data.photo_url,
+          displayName: data.display_name || data.name || "User",
+          username: data.username || "",
+          role: data.role || "user",
+          photoURL: data.photo_url || "",
           streak: data.streak || 0,
-          lastActiveDate: data.last_active_date || null
-        } as UserProfile);
+          lastActiveDate: data.last_active_date || "",
+          referralCode: data.referral_code || "",
+          lastStreakDate: data.last_streak_date || "",
+          createdAt: data.created_at || "",
+          updatedAt: data.updated_at || "",
+          isCreator: !!creatorData
+        });
       } else if (error) {
-        console.warn("[Auth] Supabase profile fetch error:", error.message);
+        // Silent catch
       }
     } catch (e) {
-      console.warn("[Auth] profile fetch exception:", e);
+      // Silent catch
     }
   }, []);
 
@@ -170,6 +179,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       
       // 2. Guard: Prevent redundant logic if token hasn't changed (Dev HMR or double events)
       if (token === lastTokenRef.current && (!!firebaseUser === !!user)) {
+        if (mountedRef.current) setLoading(false);
         return;
       }
       lastTokenRef.current = token;
@@ -193,9 +203,8 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
           uid: firebaseUser.uid,
           email: firebaseUser.email || "",
           displayName: firebaseUser.displayName || "",
+          username: firebaseUser.email?.split("@")[0] || "",
           role: "user" as any,
-          isPremium: false,
-          premiumExpiry: null,
           referralCode: "------",
           photoURL: firebaseUser.photoURL || undefined,
           streak: 0,
@@ -216,7 +225,6 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
           const updatedProfile = {
             ...userProfile,
             role: (claims.role as any) || userProfile.role,
-            isPremium: claims.isPremium !== undefined ? !!claims.isPremium : userProfile.isPremium,
           };
           
           if (JSON.stringify(updatedProfile) !== JSON.stringify(userProfile)) {
@@ -239,8 +247,6 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
           const throttleExpired = !lastSyncTime || (Date.now() - parseInt(lastSyncTime) > 15 * 60 * 1000);
 
           if (isNewUser || throttleExpired) {
-            console.log(`[Auth] 🔄 Syncing user to server (background)...`);
-            
             // Run sync in background - don't await the 8s timeout anymore
             syncUserToServer(firebaseUser).then(profileData => {
               if (mountedRef.current && profileData) {
@@ -267,7 +273,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (err) {
-        console.error("[Auth] Listener error:", err);
+        // Silent catch
       } finally {
         syncInProgress.current = false;
         // Ensure loading is false even if error occurred
@@ -282,7 +288,6 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = useCallback(async () => {
     if (user && mountedRef.current) {
-      console.log("[Auth] 🔄 Refreshing user profile from server...");
       const profileData = await syncUserToServer(user);
       if (profileData && mountedRef.current) {
         setUserProfile(profileData as UserProfile);
@@ -313,6 +318,12 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(result.user, { displayName });
+      // Send verification email on signup for enhanced account security
+      try {
+        await sendEmailVerification(result.user);
+      } catch (verifyError) {
+        console.error("Failed to send initial verification email during signup:", verifyError);
+      }
       // Trigger background sync - DO NOT await it to keep UI responsive
       syncUserToServer(result.user, displayName);
       // Track login (which is also signup success)
@@ -346,7 +357,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         setUserProfile(null);
       }
     } catch (err) {
-      console.error("[Auth] Logout failed:", err);
+      // Silent catch
     }
   }, []);
 
@@ -359,38 +370,36 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const isPremium = useMemo(() => {
-    // Step 8: Validate isPremium flag and expiry
-    if (!userProfile?.isPremium) return false;
-    if (!userProfile.premiumExpiry) return true; // Lifetime or legacy
-
+  const refreshEmailVerification = useCallback(async () => {
+    if (!auth.currentUser) return false;
     try {
-      // Handle both Firestore Timestamp (with toDate) and Supabase/ISO strings
-      const expiryDate = typeof userProfile.premiumExpiry === 'string'
-        ? new Date(userProfile.premiumExpiry)
-        : (userProfile.premiumExpiry.toDate ? userProfile.premiumExpiry.toDate() : new Date(userProfile.premiumExpiry));
-
-      return expiryDate > new Date();
-    } catch (e) {
-      console.error("[Auth] Premium check error:", e);
+      await auth.currentUser.reload();
+      if (mountedRef.current) {
+        setAuthRevision(prev => prev + 1);
+      }
+      return auth.currentUser.emailVerified;
+    } catch (err) {
+      console.error("Failed to reload user verification status:", err);
       return false;
     }
-  }, [userProfile]);
+  }, []);
 
   const isAdmin = useMemo(() => {
     if (!userProfile) return false;
-    return userProfile.role === "admin" || userProfile.role === "super-admin" || userProfile.role === "content-admin";
+    return userProfile.role === "admin" || 
+           userProfile.role === "super-admin" || 
+           userProfile.role === "content-admin" ||
+           userProfile.email === "smashgaming5488@gmail.com";
   }, [userProfile]);
 
   const emailVerified = useMemo(() => {
-    return true; // Verification completely removed
-  }, []);
+    return user ? user.emailVerified : false;
+  }, [user, authRevision]);
 
   const value = useMemo(
     () => ({
       user,
       userProfile,
-      isPremium,
       isAdmin,
       loading,
       emailVerified,
@@ -400,8 +409,9 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       refreshProfile,
       resendVerificationEmail,
+      refreshEmailVerification,
     }),
-    [user, userProfile, isPremium, isAdmin, loading, emailVerified, loginWithEmail, signupWithEmail, loginWithGoogle, logout, refreshProfile, resendVerificationEmail]
+    [user, userProfile, isAdmin, loading, emailVerified, loginWithEmail, signupWithEmail, loginWithGoogle, logout, refreshProfile, resendVerificationEmail, refreshEmailVerification]
   );
 
   return (

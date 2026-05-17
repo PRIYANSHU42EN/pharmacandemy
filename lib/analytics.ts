@@ -29,13 +29,20 @@ class AnalyticsTracker {
   private scheduleBatch() {
     if (this.batchTimeout) return;
 
-    this.batchTimeout = setTimeout(async () => {
-      await this.flush();
+    this.batchTimeout = setTimeout(() => {
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        window.requestIdleCallback(() => this.flush());
+      } else {
+        this.flush();
+      }
     }, this.BATCH_DELAY);
   }
 
   private async flush() {
-    if (this.queue.length === 0) return;
+    if (this.queue.length === 0) {
+      this.batchTimeout = null;
+      return;
+    }
 
     const events = [...this.queue];
     this.queue = [];
@@ -51,17 +58,19 @@ class AnalyticsTracker {
           const token = await user.getIdToken();
           headers["Authorization"] = `Bearer ${token}`;
         } catch (tokenErr) {
-          console.warn("[Analytics] Token fetch failed, sending as guest:", tokenErr);
+          // Silent fail for token, send as guest
         }
       }
 
       await fetch("/api/analytics", {
         method: "POST",
         headers,
-        body: JSON.stringify({ events })
+        body: JSON.stringify({ events }),
+        // Use keepalive to ensure the request completes even if the page is closed
+        keepalive: true,
       });
     } catch (err) {
-      console.error("[Analytics] Failed to flush events:", err);
+      // Fail silently in production to avoid polluting console
     }
   }
 }

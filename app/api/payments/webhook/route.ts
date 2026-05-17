@@ -81,42 +81,9 @@ export async function POST(req: NextRequest) {
           created_at: new Date().toISOString(),
         });
 
-        // Grant premium
-        const isPremiumPlan =
-          paymentType === "premium_monthly" ||
-          paymentType === "premium_biannual" ||
-          (paymentType === "subscription" && payment.amount >= 4000);
-
-        if (isPremiumPlan) {
-          let days = paymentType === "premium_biannual" || payment.amount === 6000 ? 180 : 30;
-          const expiryDate = new Date();
-          expiryDate.setDate(expiryDate.getDate() + days);
-
-          // 1. Update Supabase
-          await supabaseAdmin
-            .from("users")
-            .update({
-              is_premium: true,
-              premium_expires_at: expiryDate.toISOString(),
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", userId);
-          
-          // 2. Update Firestore for dual-sync consistency
-          try {
-            const userRef = adminDb.collection("users").doc(userId);
-            await userRef.update({
-              isPremium: true,
-              premiumExpiry: expiryDate.toISOString(),
-              updatedAt: new Date().toISOString(),
-            });
-            console.log(`[Webhook] Firestore premium activated for ${userId}`);
-          } catch (firestoreError: any) {
-            console.warn("[Webhook] Firestore update failed (non-critical):", firestoreError.message);
-          }
-          
-          console.log(`[Webhook] Premium activated for user ${userId}`);
-        }
+        // Logic removed as platform is now free.
+        // Marketplace and Urgent Work handled via separate logic.
+        console.log(`[Webhook] Payment processed for user ${userId}, type: ${paymentType}`);
       }
     }
 
