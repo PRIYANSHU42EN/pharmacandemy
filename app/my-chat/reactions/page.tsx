@@ -127,8 +127,14 @@ export default function ReactionsHubPage() {
   const reactedMessages = useMemo(() => {
     const list: ReactedMessage[] = [];
 
+    // Create a Map for O(1) room lookups to improve performance
+    const roomsMap = new Map();
+    for (const room of rooms) {
+      roomsMap.set(room.room_id, room);
+    }
+
     Object.entries(loadedRoomsData).forEach(([roomId, messages]) => {
-      const roomInfo = rooms.find(r => r.room_id === roomId);
+      const roomInfo = roomsMap.get(roomId);
       if (!roomInfo) return;
 
       messages.forEach(msg => {
