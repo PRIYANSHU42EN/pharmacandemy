@@ -41,9 +41,13 @@ async function sync() {
 
   console.log(`Found ${resources?.length} resources. Syncing to Firestore...`);
 
-  for (const res of resources || []) {
+  const resourcesList = resources || [];
+  let batch = db.batch();
+  let count = 0;
+
+  for (const res of resourcesList) {
     const docRef = db.collection("resources").doc(res.id);
-    await docRef.set({
+    batch.set(docRef, {
       title: res.title,
       description: res.description,
       type: res.type,
@@ -56,7 +60,21 @@ async function sync() {
       createdAt: res.created_at,
       updatedAt: res.updated_at,
     }, { merge: true });
-    console.log(`Synced: ${res.title}`);
+
+    count++;
+
+    // Firestore has a limit of 500 writes per batch
+    if (count % 500 === 0) {
+      await batch.commit();
+      console.log(`Committed batch of 500. Total synced: ${count}`);
+      batch = db.batch();
+    }
+  }
+
+  // Commit any remaining operations
+  if (count % 500 !== 0) {
+    await batch.commit();
+    console.log(`Committed final batch. Total synced: ${count}`);
   }
 
   console.log("Sync complete!");
