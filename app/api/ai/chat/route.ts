@@ -2,9 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { aiRouter } from "@/lib/ai/router";
 import { STUDY_ASSISTANT_PROMPT, NEGOTIATOR_PROMPT } from "@/lib/ai/prompts";
 import { AIContext } from "@/lib/ai/types";
+import { withAuth } from "@/lib/api-middleware";
+import { applyRateLimit } from "@/lib/rate-limit";
 
-export async function POST(req: NextRequest) {
+export const POST = withAuth(async (req: NextRequest) => {
   try {
+    // Apply rate-limiting (limit to 50 requests per minute per IP)
+    const limitResponse = await applyRateLimit(req, { maxRequests: 50, windowMs: 60000 });
+    if (limitResponse) return limitResponse;
+
     const { messages, pillar, preferredProvider } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
@@ -39,4 +45,5 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
+

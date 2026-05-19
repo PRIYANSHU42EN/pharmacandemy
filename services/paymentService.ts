@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { pptSupabaseAdmin } from "@/lib/supabase/pptAdmin";
 import { adminDb } from "@/lib/firebase/admin";
 import crypto from "crypto";
 
@@ -20,8 +21,8 @@ export class PaymentService {
   ): Promise<PaymentVerificationResult> {
     console.log(`[PaymentService] Verifying payment for user: ${userId}, Order: ${razorpayOrderId}`);
     
-    if (!supabaseAdmin) {
-      console.error("[PaymentService] Supabase Admin client not initialized");
+    if (!supabaseAdmin || !pptSupabaseAdmin) {
+      console.error("[PaymentService] Supabase or PPT Admin client not initialized");
       return { success: false, message: "Database not configured" };
     }
 
@@ -96,7 +97,7 @@ export class PaymentService {
       
       // --- PPT PURCHASE ---
       if (type === "ppt_purchase" && metadata.pptId) {
-        await supabaseAdmin.from("ppt_purchases").insert({
+        await pptSupabaseAdmin.from("ppt_purchases").insert({
           user_id: userId,
           ppt_id: metadata.pptId,
           amount: amount,
@@ -105,13 +106,13 @@ export class PaymentService {
         });
 
         // Increment download count directly
-        const { data: ppt } = await supabaseAdmin
+        const { data: ppt } = await pptSupabaseAdmin
           .from("ppt_marketplace")
           .select("download_count")
           .eq("id", metadata.pptId)
           .single();
         
-        await supabaseAdmin
+        await pptSupabaseAdmin
           .from("ppt_marketplace")
           .update({ 
             download_count: (ppt?.download_count || 0) + 1,

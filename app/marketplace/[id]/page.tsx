@@ -9,7 +9,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { PPTListing } from "@/types";
 import { cn } from "@/lib/utils";
 import { toast } from "react-hot-toast";
-import { supabase } from "@/lib/supabase/client";
+import { pptSupabase } from "@/lib/supabase/ppt";
 
 export default function PPTDetailPage() {
   const { id } = useParams();
@@ -25,7 +25,7 @@ export default function PPTDetailPage() {
     async function fetchPPT() {
       try {
         setLoading(true);
-        const { data, error } = await supabase
+        const { data, error } = await pptSupabase
           .from('ppt_marketplace')
           .select(`
             *,
@@ -40,7 +40,7 @@ export default function PPTDetailPage() {
 
         // Check if purchased
         if (user) {
-          const { data: purchase } = await supabase
+          const { data: purchase } = await pptSupabase
             .from('ppt_purchases')
             .select('*')
             .eq('user_id', user.uid)

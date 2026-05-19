@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase/admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { pptSupabaseAdmin } from "@/lib/supabase/pptAdmin";
 
 export async function POST(req: NextRequest) {
   try {
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
       const { pptId } = body;
       if (!pptId) return NextResponse.json({ error: "pptId required" }, { status: 400 });
       
-      const { data: ppt, error: pptErr } = await supabaseAdmin
+      const { data: ppt, error: pptErr } = await pptSupabaseAdmin
         .from('ppt_marketplace')
         .select('price')
         .eq('id', pptId)

@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { pptSupabaseAdmin } from "@/lib/supabase/pptAdmin";
 import { adminAuth } from "@/lib/firebase/admin";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // Need service role to generate signed URLs
-);
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,8 +10,12 @@ export async function GET(req: NextRequest) {
 
     if (!pptId) return NextResponse.json({ error: "Missing asset ID" }, { status: 400 });
 
+    if (!pptSupabaseAdmin) {
+      return NextResponse.json({ error: "Storage/Database not configured" }, { status: 500 });
+    }
+
     // 1. Fetch PPT details
-    const { data: ppt, error: pptError } = await supabase
+    const { data: ppt, error: pptError } = await pptSupabaseAdmin
       .from("ppt_marketplace")
       .select("*")
       .eq("id", pptId)
@@ -39,7 +38,7 @@ export async function GET(req: NextRequest) {
     const userId = decodedToken.uid;
 
     // 4. Verify Purchase
-    const { data: purchase, error: purchaseError } = await supabase
+    const { data: purchase, error: purchaseError } = await pptSupabaseAdmin
       .from("ppt_purchases")
       .select("*")
       .eq("user_id", userId)
@@ -68,7 +67,11 @@ async function generateDownloadResponse(fileUrl: string) {
   
   const filePath = pathParts[1];
 
-  const { data, error } = await supabase.storage
+  if (!pptSupabaseAdmin) {
+    throw new Error("PPT Storage not initialized");
+  }
+  
+  const { data, error } = await pptSupabaseAdmin.storage
     .from("ppt_assets")
     .createSignedUrl(filePath, 300); // 5 minute link
 

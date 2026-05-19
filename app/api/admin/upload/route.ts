@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { verifyFirebaseToken, checkAdminRole } from "@/lib/auth-utils";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { withAdmin } from "@/lib/api-middleware";
 
 // Allowed MIME types and extensions for security
 const ALLOWED_TYPES = {
@@ -9,20 +9,10 @@ const ALLOWED_TYPES = {
   "resources": ["image/jpeg", "image/png", "image/webp", "video/mp4", "application/pdf"]
 };
 
-export async function POST(req: NextRequest) {
+export const POST = withAdmin(async (req: NextRequest) => {
   try {
     const rateLimitResponse = await applyRateLimit(req, { maxRequests: 20, windowMs: 60000 });
     if (rateLimitResponse) return rateLimitResponse;
-
-    const decodedToken = await verifyFirebaseToken(req);
-    if (!decodedToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const isAdmin = await checkAdminRole(decodedToken.uid);
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
 
     const formData = await req.formData();
     const file = formData.get("file") as File;
@@ -88,4 +78,5 @@ export async function POST(req: NextRequest) {
     console.error("[Upload API] Internal Error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
+});
+

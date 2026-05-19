@@ -79,8 +79,9 @@ export async function POST(req: NextRequest) {
 
       // Regular users: ensure they only have access to their specific rooms
       for (const roomId of userRooms) {
-        capabilities[`[chat]chat:room:${roomId}*`] = ["*"];
-        capabilities[`chat:room:${roomId}*`] = ["*"];
+        const resourceId = roomId.startsWith("chat:room:") ? roomId : `chat:room:${roomId}`;
+        capabilities[`[chat]${resourceId}*`] = ["*"];
+        capabilities[`${resourceId}*`] = ["*"];
       }
     }
 

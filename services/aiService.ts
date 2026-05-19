@@ -1,3 +1,4 @@
+import { auth } from "@/lib/firebase/config";
 import { UrgentWorkTicket, UrgentWorkMessage } from "@/types";
 
 
@@ -8,9 +9,18 @@ export class AIService {
     preferredProvider?: string
   ) {
     try {
+      const token = await auth.currentUser?.getIdToken();
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const response = await fetch("/api/ai/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ messages, pillar, preferredProvider }),
       });
 
@@ -26,6 +36,7 @@ export class AIService {
       throw error;
     }
   }
+
 
 
 

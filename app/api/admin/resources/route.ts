@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { invalidateCache } from "@/lib/redis";
-import { verifyFirebaseToken, checkAdminRole } from "@/lib/auth-utils";
+import { withAdmin } from "@/lib/api-middleware";
 
-export async function GET(req: NextRequest) {
+export const GET = withAdmin(async (req: NextRequest) => {
   try {
     const { searchParams } = new URL(req.url);
     const subjectId = searchParams.get("subjectId");
@@ -25,24 +25,18 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withAdmin(async (req: NextRequest) => {
   try {
-    const decodedToken = await verifyFirebaseToken(req);
-    if (!decodedToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const isAdmin = await checkAdminRole(decodedToken.uid);
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
-    }
-
     const body = await req.json();
     const { title, description, type, url, subject_id, course_id, preview_image_url, tags, year } = body;
 
-    const { data, error } = await supabaseAdmin!
+    if (!supabaseAdmin) {
+      throw new Error("Supabase Admin client not initialized");
+    }
+
+    const { data, error } = await supabaseAdmin
       .from("resources")
       .insert([{
         title,
@@ -76,24 +70,18 @@ export async function POST(req: NextRequest) {
     console.error("[Admin API] Error:", error.message);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
+});
 
-export async function PATCH(req: NextRequest) {
+export const PATCH = withAdmin(async (req: NextRequest) => {
   try {
-    const decodedToken = await verifyFirebaseToken(req);
-    if (!decodedToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const isAdmin = await checkAdminRole(decodedToken.uid);
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const body = await req.json();
     const { id, ...updates } = body;
 
-    const { data, error } = await supabaseAdmin!
+    if (!supabaseAdmin) {
+      throw new Error("Supabase Admin client not initialized");
+    }
+
+    const { data, error } = await supabaseAdmin
       .from("resources")
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq("id", id)
@@ -115,27 +103,21 @@ export async function PATCH(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withAdmin(async (req: NextRequest) => {
   try {
-    const decodedToken = await verifyFirebaseToken(req);
-    if (!decodedToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const isAdmin = await checkAdminRole(decodedToken.uid);
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
     if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
+    if (!supabaseAdmin) {
+      throw new Error("Supabase Admin client not initialized");
+    }
+
     // 1. Fetch item by id (to get URL and subject_id)
-    const { data: existing, error: fetchError } = await supabaseAdmin!
+    const { data: existing, error: fetchError } = await supabaseAdmin
       .from("resources")
       .select("*")
       .eq("id", id)
@@ -172,7 +154,7 @@ export async function DELETE(req: NextRequest) {
 
         if (bucket && path) {
           console.log(`[Admin API] Deleting from storage: bucket=${bucket}, path=${path}`);
-          await supabaseAdmin!.storage.from(bucket).remove([path]);
+          await supabaseAdmin.storage.from(bucket).remove([path]);
         }
       } catch (storageErr) {
         console.warn("[Admin API] Storage deletion failed (continuing):", storageErr);
@@ -180,7 +162,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     // 3. Delete from DB (Hard delete)
-    const { error: deleteError } = await supabaseAdmin!
+    const { error: deleteError } = await supabaseAdmin
       .from("resources")
       .delete()
       .eq("id", id);
@@ -200,4 +182,5 @@ export async function DELETE(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
+});
+

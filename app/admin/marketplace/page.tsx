@@ -7,7 +7,7 @@ import {
   X, Check, AlertCircle, ShieldCheck, UserCheck, LayoutGrid, Tag, Star, Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase/client";
+import { pptSupabase } from "@/lib/supabase/ppt";
 import { toast } from "react-hot-toast";
 
 export default function AdminMarketplace() {
@@ -34,15 +34,15 @@ export default function AdminMarketplace() {
   useEffect(() => {
     const fetchData = async () => {
       // 1. Fetch Categories
-      const { data: catData } = await supabase.from('ppt_categories').select('*').order('name');
+      const { data: catData } = await pptSupabase.from('ppt_categories').select('*').order('name');
       if (catData) setCategories(catData);
 
       // 2. Fetch Creators
-      const { data: creatorData } = await supabase.from('creator_profiles').select('*').order('display_name');
+      const { data: creatorData } = await pptSupabase.from('creator_profiles').select('*').order('display_name');
       if (creatorData) setCreators(creatorData);
 
       // 3. Fetch PPTs with joins
-      const { data: pptsData } = await supabase
+      const { data: pptsData } = await pptSupabase
         .from('ppt_marketplace')
         .select('*, category:ppt_categories(*), creator:creator_profiles(*)')
         .order('created_at', { ascending: false });
@@ -56,7 +56,7 @@ export default function AdminMarketplace() {
       }
 
       // 4. Fetch Sales Stats
-      const { data: purchases } = await supabase
+      const { data: purchases } = await pptSupabase
         .from('ppt_purchases')
         .select('amount');
       
@@ -71,13 +71,13 @@ export default function AdminMarketplace() {
     };
     fetchData();
 
-    const channel = supabase
+    const channel = pptSupabase
       .channel('admin_marketplace_v2')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ppt_marketplace' }, () => fetchData())
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      pptSupabase.removeChannel(channel);
     };
   }, []);
 
@@ -86,13 +86,13 @@ export default function AdminMarketplace() {
     const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
     const filePath = `${path}/${fileName}`;
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await pptSupabase.storage
       .from('ppt_assets')
       .upload(filePath, file);
 
     if (uploadError) throw uploadError;
 
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = pptSupabase.storage
       .from('ppt_assets')
       .getPublicUrl(filePath);
 

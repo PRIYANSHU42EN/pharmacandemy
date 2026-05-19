@@ -1,31 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase/admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { pptSupabaseAdmin } from "@/lib/supabase/pptAdmin";
+import { withAdmin } from "@/lib/api-middleware";
 
-export async function GET(req: NextRequest) {
+export const GET = withAdmin(async (req: NextRequest) => {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const idToken = authHeader.split("Bearer ")[1];
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const { uid } = decodedToken;
-
-    if (!supabaseAdmin) {
+    if (!supabaseAdmin || !pptSupabaseAdmin) {
       return NextResponse.json({ error: "Server configuration error: Admin client missing" }, { status: 500 });
-    }
-
-    // Admin check in Supabase
-    const { data: user, error: userError } = await supabaseAdmin
-      .from("users")
-      .select("role")
-      .eq("id", uid)
-      .single();
-
-    if (userError || (user.role !== "admin" && user.role !== "super-admin")) {
-      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
     }
 
     // --- PARALLEL EXECUTION OF STATS ---
@@ -36,7 +17,7 @@ export async function GET(req: NextRequest) {
       // 1. Total Users
       supabaseAdmin.from("users").select("id", { count: "exact", head: true }),
       // 2. Marketplace Sellers
-      supabaseAdmin.from("creator_profiles").select("id", { count: "exact", head: true }),
+      pptSupabaseAdmin.from("creator_profiles").select("id", { count: "exact", head: true }),
       // 3. Total Courses
       supabaseAdmin.from("courses").select("*", { count: "exact", head: true }),
       // 4. Total Resources
@@ -74,7 +55,7 @@ export async function GET(req: NextRequest) {
         .select("user_id")
         .gt("created_at", oneDayAgo),
       // 11. Marketplace Sales (Total Purchases)
-      supabaseAdmin.from("ppt_purchases").select("id", { count: "exact", head: true }),
+      pptSupabaseAdmin.from("ppt_purchases").select("id", { count: "exact", head: true }),
       // 12. Total Urgent Tickets
       supabaseAdmin.from("urgent_work_tickets").select("id", { count: "exact", head: true }),
       // 13. Pending Urgent Tickets
@@ -131,4 +112,5 @@ export async function GET(req: NextRequest) {
     console.error("[Admin Stats API] Internal Error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
+});
+

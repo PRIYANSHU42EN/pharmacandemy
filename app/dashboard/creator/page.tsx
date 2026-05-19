@@ -8,7 +8,7 @@ import {
   Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase/client";
+import { pptSupabase } from "@/lib/supabase/ppt";
 import { useAuth } from "@/components/providers/AuthProvider";
 import Link from "next/link";
 
@@ -30,7 +30,7 @@ export default function CreatorDashboard() {
       setLoading(true);
       if (!user?.uid) return;
       // Fetch Creator Profile
-      const { data: profile } = await supabase
+      const { data: profile } = await pptSupabase
         .from('creator_profiles')
         .select('*')
         .eq('user_id', user.uid)
@@ -45,7 +45,7 @@ export default function CreatorDashboard() {
         });
 
         // Fetch My PPTs
-        const { data: ppts } = await supabase
+        const { data: ppts } = await pptSupabase
           .from('ppt_marketplace')
           .select('*')
           .eq('creator_id', profile.id)

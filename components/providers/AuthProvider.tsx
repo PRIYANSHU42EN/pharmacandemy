@@ -31,6 +31,7 @@ import {
 import type { UserProfile } from "@/types";
 import { getFriendlyAuthError } from "@/lib/firebase/errors";
 import { supabase } from "@/lib/supabase/client";
+import { pptSupabase } from "@/lib/supabase/ppt";
 import { useReminder } from "@/hooks/useReminder";
 import { useReferral } from "@/hooks/useReferral";
 import { analytics } from "@/lib/analytics";
@@ -140,7 +141,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       // NEW: Check if user is a creator
-      const { data: creatorData } = await supabase
+      const { data: creatorData } = await pptSupabase
         .from("creator_profiles")
         .select("id")
         .eq("user_id", userId)

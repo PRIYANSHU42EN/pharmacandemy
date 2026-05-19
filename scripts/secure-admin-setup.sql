@@ -14,7 +14,7 @@ ALTER TABLE public.resources ENABLE ROW LEVEL SECURITY;
 -- Users can see their own profile
 DROP POLICY IF EXISTS "Users can view own profile" ON public.users;
 CREATE POLICY "Users can view own profile" ON public.users
-FOR SELECT USING (auth.uid() = id);
+FOR SELECT USING (auth.uid()::text = id);
 
 -- Admins can see all profiles
 DROP POLICY IF EXISTS "Admins can view all profiles" ON public.users;
@@ -22,14 +22,14 @@ CREATE POLICY "Admins can view all profiles" ON public.users
 FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM public.users 
-    WHERE id = auth.uid() AND role = 'admin'
+    WHERE id = auth.uid()::text AND role = 'admin'
   )
 );
 
 -- Users can update their own profile (e.g. name)
 DROP POLICY IF EXISTS "Users can update own profile" ON public.users;
 CREATE POLICY "Users can update own profile" ON public.users
-FOR UPDATE USING (auth.uid() = id);
+FOR UPDATE USING (auth.uid()::text = id);
 
 -- 3. CONTENT TABLES (Courses, Subjects, Resources)
 -- Public read access for everyone
@@ -50,13 +50,13 @@ FOR ALL TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM public.users 
-    WHERE id = auth.uid() AND role = 'admin'
+    WHERE id = auth.uid()::text AND role = 'admin'
   )
 )
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.users 
-    WHERE id = auth.uid() AND role = 'admin'
+    WHERE id = auth.uid()::text AND role = 'admin'
   )
 );
 
@@ -67,13 +67,13 @@ FOR ALL TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM public.users 
-    WHERE id = auth.uid() AND role = 'admin'
+    WHERE id = auth.uid()::text AND role = 'admin'
   )
 )
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.users 
-    WHERE id = auth.uid() AND role = 'admin'
+    WHERE id = auth.uid()::text AND role = 'admin'
   )
 );
 
@@ -84,12 +84,12 @@ FOR ALL TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM public.users 
-    WHERE id = auth.uid() AND role = 'admin'
+    WHERE id = auth.uid()::text AND role = 'admin'
   )
 )
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.users 
-    WHERE id = auth.uid() AND role = 'admin'
+    WHERE id = auth.uid()::text AND role = 'admin'
   )
 );

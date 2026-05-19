@@ -5,7 +5,7 @@ import PPTCard from "@/components/marketplace/PPTCard";
 import { Search, SlidersHorizontal, Loader2, Sparkles, LayoutGrid } from "lucide-react";
 import { PPTListing, PPTCategory } from "@/types";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase/client";
+import { pptSupabase } from "@/lib/supabase/ppt";
 
 export default function MarketplacePage() {
   const [ppts, setPpts] = useState<PPTListing[]>([]);
@@ -21,7 +21,7 @@ export default function MarketplacePage() {
         setLoading(true);
         
         // 1. Fetch Categories
-        const { data: catData } = await supabase
+        const { data: catData } = await pptSupabase
           .from('ppt_categories')
           .select('*')
           .order('name');
@@ -29,7 +29,7 @@ export default function MarketplacePage() {
         if (catData) setCategories(catData);
 
         // 2. Fetch PPTs with joins
-        let query = supabase
+        let query = pptSupabase
           .from('ppt_marketplace')
           .select(`
             *,
@@ -57,7 +57,7 @@ export default function MarketplacePage() {
     fetchData();
 
     // Subscribe to realtime updates
-    const channel = supabase
+    const channel = pptSupabase
       .channel('universal_marketplace')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ppt_marketplace' }, () => {
         fetchData(); // Simplest way to keep joins in sync
@@ -65,7 +65,7 @@ export default function MarketplacePage() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      pptSupabase.removeChannel(channel);
     };
   }, [sortBy]);
 

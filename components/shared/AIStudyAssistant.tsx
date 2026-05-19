@@ -36,17 +36,13 @@ export default function AIStudyAssistant() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          messages: messages.concat(userMsg).map(m => ({ role: m.role, content: m.content })),
-          pillar: 'study'
-        })
-      });
+      const formattedMessages = messages.concat(userMsg).map(m => ({
+        role: m.role as "user" | "assistant",
+        content: m.content
+      }));
 
-      const data = await response.json();
-      setMessages(prev => [...prev, { role: "assistant", content: data.text }]);
+      const text = await AIService.generateChatResponse(formattedMessages, 'study');
+      setMessages(prev => [...prev, { role: "assistant", content: text }]);
     } catch (e) {
       setMessages(prev => [...prev, { role: "assistant", content: "Sorry, I'm having trouble connecting. Please try again." }]);
     } finally {

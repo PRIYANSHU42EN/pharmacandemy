@@ -12,8 +12,8 @@ export async function verifyFirebaseToken(requestOrToken: Request | string) {
     token = requestOrToken;
   } else {
     const authHeader = requestOrToken.headers.get("Authorization");
-    if (authHeader?.startsWith("Bearer ")) {
-      token = authHeader.split(" ")[1];
+    if (authHeader && /^Bearer\s+/i.test(authHeader)) {
+      token = authHeader.replace(/^Bearer\s+/i, "");
     }
   }
 

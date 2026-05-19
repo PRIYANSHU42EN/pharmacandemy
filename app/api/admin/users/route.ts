@@ -1,35 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { adminAuth } from "@/lib/firebase/admin";
+import { withAdmin } from "@/lib/api-middleware";
 
-export async function GET(request: Request) {
+export const GET = withAdmin(async (request: NextRequest) => {
   try {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(token);
-    } catch (e: any) {
-      return NextResponse.json({ error: "Invalid token: " + e.message }, { status: 401 });
-    }
-
     if (!supabaseAdmin) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
-    }
-
-    // Admin check
-    const { data: requester } = await supabaseAdmin
-      .from('users')
-      .select('role')
-      .eq('id', decodedToken.uid)
-      .single();
-
-    if (requester?.role !== 'admin' && requester?.role !== 'super-admin') {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -49,43 +26,17 @@ export async function GET(request: Request) {
     console.error("[API/Admin/Users] GET Error:", error.message);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
+});
 
-export async function PATCH(request: Request) {
+export const PATCH = withAdmin(async (request: NextRequest) => {
   try {
     const { uid, updates } = await request.json();
-    const authHeader = request.headers.get("Authorization");
-
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
     
-    // 1. Verify the caller's Firebase token
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(token);
-    } catch (e: any) {
-      return NextResponse.json({ error: "Invalid token: " + e.message }, { status: 401 });
-    }
-    
-    // 2. Check if the requester is actually an admin in Supabase
     if (!supabaseAdmin) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
     }
 
-    const { data: requester, error: reqError } = await supabaseAdmin
-      .from('users')
-      .select('role')
-      .eq('id', decodedToken.uid)
-      .single();
-
-    if (reqError || (requester?.role !== 'admin' && requester?.role !== 'super-admin')) {
-      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
-    }
-
-    // 3. Apply updates to target user
+    // Apply updates to target user
     const { data, error } = await supabaseAdmin
       .from('users')
       .update({
@@ -98,7 +49,7 @@ export async function PATCH(request: Request) {
 
     if (error) throw error;
     
-    // 4. Update Firebase Custom Claims for consistency
+    // Update Firebase Custom Claims for consistency
     try {
       const claims: any = {
         role: data.role,
@@ -119,7 +70,8 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true, user: data });
   } catch (error: any) {
-    console.error("[API/Admin/Users] Error:", error.message);
+    console.error("[API/Admin/Users] PATCH Error:", error.message);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
+});
+

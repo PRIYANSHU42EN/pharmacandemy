@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { verifyFirebaseToken, checkAdminRole } from "@/lib/auth-utils";
+import { withAdmin } from "@/lib/api-middleware";
 
 /**
  * Helper to delete a file from Supabase Storage given its URL
@@ -48,20 +48,10 @@ async function deleteStorageFile(url: string) {
   }
 }
 
-export async function POST(req: NextRequest) {
+export const POST = withAdmin(async (req: NextRequest) => {
   try {
-    const decodedToken = await verifyFirebaseToken(req);
-    if (!decodedToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     if (!supabaseAdmin) {
       return NextResponse.json({ error: "Server configuration error: Database client missing" }, { status: 500 });
-    }
-
-    const isAdmin = await checkAdminRole(decodedToken.uid);
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
     }
 
     const body = await req.json();
@@ -97,22 +87,12 @@ export async function POST(req: NextRequest) {
     console.error("[Admin API] Error:", error.message);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
+});
 
-export async function PATCH(req: NextRequest) {
+export const PATCH = withAdmin(async (req: NextRequest) => {
   try {
-    const decodedToken = await verifyFirebaseToken(req);
-    if (!decodedToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     if (!supabaseAdmin) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
-    }
-
-    const isAdmin = await checkAdminRole(decodedToken.uid);
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await req.json();
@@ -146,22 +126,12 @@ export async function PATCH(req: NextRequest) {
     console.error("[Admin API PATCH] Error:", error.message);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withAdmin(async (req: NextRequest) => {
   try {
-    const decodedToken = await verifyFirebaseToken(req);
-    if (!decodedToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     if (!supabaseAdmin) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
-    }
-
-    const isAdmin = await checkAdminRole(decodedToken.uid);
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -276,21 +246,11 @@ export async function DELETE(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
-export async function GET(req: NextRequest) {
+});
+export const GET = withAdmin(async (req: NextRequest) => {
   try {
-    const decodedToken = await verifyFirebaseToken(req);
-    if (!decodedToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     if (!supabaseAdmin) {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
-    }
-
-    const isAdmin = await checkAdminRole(decodedToken.uid);
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -317,4 +277,4 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
+});

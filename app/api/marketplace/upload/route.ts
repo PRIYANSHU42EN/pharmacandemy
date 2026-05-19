@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { pptSupabaseAdmin } from "@/lib/supabase/pptAdmin";
 import { verifyFirebaseToken } from "@/lib/auth-utils";
 
 export async function POST(req: NextRequest) {
@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!supabaseAdmin) {
+    if (!pptSupabaseAdmin) {
       return NextResponse.json({ error: "Database client missing" }, { status: 500 });
     }
 
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     } = body;
 
     // 1. Get or create creator profile
-    let { data: profile, error: profileFetchErr } = await supabaseAdmin
+    let { data: profile, error: profileFetchErr } = await pptSupabaseAdmin
       .from('creator_profiles')
       .select('id')
       .eq('user_id', decodedToken.uid)
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     if (profileFetchErr) throw profileFetchErr;
 
     if (!profile) {
-      const { data: newProfile, error: profileCreateErr } = await supabaseAdmin
+      const { data: newProfile, error: profileCreateErr } = await pptSupabaseAdmin
         .from('creator_profiles')
         .insert({ 
           user_id: decodedToken.uid, 
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Insert PPT
-    const { data: ppt, error: pptErr } = await supabaseAdmin
+    const { data: ppt, error: pptErr } = await pptSupabaseAdmin
       .from('ppt_marketplace')
       .insert({
         title,

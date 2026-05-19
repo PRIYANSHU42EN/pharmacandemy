@@ -1,19 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
-import { verifyFirebaseToken, checkAdminRole } from "@/lib/auth-utils";
+import { pptSupabaseAdmin } from "@/lib/supabase/pptAdmin";
+import { withAdmin } from "@/lib/api-middleware";
 
-export async function POST(req: NextRequest) {
+export const POST = withAdmin(async (req: NextRequest) => {
   try {
-    const decodedToken = await verifyFirebaseToken(req);
-    if (!decodedToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const isAdmin = await checkAdminRole(decodedToken.uid);
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const body = await req.json();
     const { 
       title, category_id, topic, price, 
@@ -22,8 +12,12 @@ export async function POST(req: NextRequest) {
       creator_id, tags, moderation_status, is_featured, is_active
     } = body;
 
+    if (!pptSupabaseAdmin) {
+      return NextResponse.json({ error: "Storage not configured" }, { status: 500 });
+    }
+
     // Insert PPT
-    const { data: ppt, error: pptErr } = await supabaseAdmin
+    const { data: ppt, error: pptErr } = await pptSupabaseAdmin
       .from('ppt_marketplace')
       .insert({
         title,
@@ -59,20 +53,18 @@ export async function POST(req: NextRequest) {
     console.error("[Admin Marketplace API] Global Error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
+});
 
-export async function PATCH(req: NextRequest) {
+export const PATCH = withAdmin(async (req: NextRequest) => {
   try {
-    const decodedToken = await verifyFirebaseToken(req);
-    if (!decodedToken) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const isAdmin = await checkAdminRole(decodedToken.uid);
-    if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
     const body = await req.json();
     const { id, updates } = body;
 
-    const { data, error } = await supabaseAdmin
+    if (!pptSupabaseAdmin) {
+      return NextResponse.json({ error: "Storage not configured" }, { status: 500 });
+    }
+
+    const { data, error } = await pptSupabaseAdmin
       .from('ppt_marketplace')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id)
@@ -85,20 +77,18 @@ export async function PATCH(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(req: NextRequest) {
+export const DELETE = withAdmin(async (req: NextRequest) => {
   try {
-    const decodedToken = await verifyFirebaseToken(req);
-    if (!decodedToken) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const isAdmin = await checkAdminRole(decodedToken.uid);
-    if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
-    const { error } = await supabaseAdmin
+    if (!pptSupabaseAdmin) {
+      return NextResponse.json({ error: "Storage not configured" }, { status: 500 });
+    }
+
+    const { error } = await pptSupabaseAdmin
       .from('ppt_marketplace')
       .delete()
       .eq('id', id);
@@ -109,4 +99,5 @@ export async function DELETE(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-}
+});
+

@@ -95,7 +95,7 @@ const ContentTable = memo(({
                 </tr>
               )}
               {allSubjects.map(sub => (
-                <tr key={sub.id} className="hover:bg-gray-50/50 transition-colors">
+                <tr key={sub.id} className="hover:bg-gray-50/50 tr=ansition-colors">
                   <td className="px-6 py-4">
                     <p className="text-[14px] font-bold text-navy">{sub.name}</p>
                     <p className="text-[11px] text-gray-500 uppercase">SEM {sub.semesterNumber || "?"}</p>
